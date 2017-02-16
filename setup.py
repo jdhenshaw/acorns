@@ -31,11 +31,11 @@ conf.read(['setup.cfg'])
 metadata = dict(conf.items('metadata'))
 
 PACKAGENAME = metadata.get('package_name', 'packagename')
-DESCRIPTION = metadata.get('description')
+DESCRIPTION = metadata.get('description', 'Astropy affiliated package')
 AUTHOR = metadata.get('author', '')
 AUTHOR_EMAIL = metadata.get('author_email', '')
 LICENSE = metadata.get('license', 'unknown')
-URL = metadata.get('url')
+URL = metadata.get('url', 'http://astropy.org')
 
 # order of priority for long_description:
 #   (1) set in setup.cfg,
@@ -66,7 +66,7 @@ else:
 builtins._ASTROPY_PACKAGE_NAME_ = PACKAGENAME
 
 # VERSION should be PEP440 compatible (http://www.python.org/dev/peps/pep-0440)
-VERSION = metadata.get('version')
+VERSION = metadata.get('version', '0.0.1.dev')
 
 # Indicates if this version is a release version
 RELEASE = 'dev' not in VERSION
@@ -125,7 +125,7 @@ setup(name=PACKAGENAME,
       version=VERSION,
       description=DESCRIPTION,
       scripts=scripts,
-      install_requires=metadata.get('install_requires').strip().split(),
+      install_requires=metadata.get('install_requires', 'astropy').strip().split(),
       author=AUTHOR,
       author_email=AUTHOR_EMAIL,
       license=LICENSE,
