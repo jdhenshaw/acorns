@@ -16,7 +16,7 @@ try:
      PYTEST_HEADER_MODULES['Astropy'] = 'astropy'
      PYTEST_HEADER_MODULES['scikit-image'] = 'skimage'
      del PYTEST_HEADER_MODULES['h5py']
- except (NameError, KeyError):  # NameError is needed to support Astropy < 1.0
+except (NameError, KeyError):  # NameError is needed to support Astropy < 1.0
      pass
 
 ## Uncomment the following lines to display the version number of the
