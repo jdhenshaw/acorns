@@ -22,7 +22,7 @@ try:
 ## Uncomment the following lines to display the version number of the
 ## package rather than the version number of Astropy in the top line when
 ## running the tests.
- import os
+import os
 #
 ## This is to figure out the affiliated package version, rather than
 ## using Astropy's
