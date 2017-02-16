@@ -13,7 +13,7 @@ Reporting issues and help
 
 Please help to improve this package by reporting issues via `GitHub
 <https://github.com/jdhenshaw/leodis/issues>`_. Alternatively, you can get in
-touch at scousepy@gmail.com
+touch at leodis@gmail.com
 
 Developers
 ----------
