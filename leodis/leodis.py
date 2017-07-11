@@ -471,7 +471,7 @@ def get_links(self, index, tree, re=False):
 
     sep = None
     if self.method == 0:
-        idx = tree.query_ball_point(coords, self.cluster_criteria[0], eps = 0,  n_jobs=-1)
+        idx = tree.query_ball_point(coords, self.cluster_criteria[0], eps = 0,  n_jobs=1)
         idx = np.array(idx[0])
         idx = idx[np.where(idx != 0)]
         link = np.ones(len(idx), dtype=bool)
@@ -493,7 +493,7 @@ def get_links(self, index, tree, re=False):
             link = idx[np.where(np.array(link)==True)]
 
     if self.method == 1:
-        idx = tree.query_ball_point(coords, self.cluster_criteria[0], eps = 0, n_jobs = -1)
+        idx = tree.query_ball_point(coords, self.cluster_criteria[0], eps = 0, n_jobs = 1)
         idx = np.array(idx[0])
         idx = idx[np.where(idx != 0)]
         link = np.ones(len(idx), dtype=bool)
@@ -525,7 +525,7 @@ def get_links(self, index, tree, re=False):
 
     if self.method == 2:
         coords = np.array([self.unassigned_data[0:3,index]])
-        idx = tree.query_ball_point(coords, self.cluster_criteria[0], eps = 0, n_jobs=-1)
+        idx = tree.query_ball_point(coords, self.cluster_criteria[0], eps = 0, n_jobs=1)
         idx = np.array(idx[0])
         idx = idx[np.where(idx != 0)]
         link = np.ones(len(idx), dtype=bool)
