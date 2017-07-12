@@ -9,9 +9,9 @@ CONTACT: j.d.henshaw@ljmu.ac.uk
 import numpy as np
 import itertools
 import sys
-import leodis_io
 import time
-from progressbar import AnimatedProgressBar
+from . import leodis_io
+from .progressbar import AnimatedProgressBar
 from scipy.spatial import distance
 from scipy.spatial import cKDTree
 from .cluster_definition import Cluster
@@ -20,6 +20,13 @@ from .cluster_definition import merge_data
 from .cluster_definition import form_a_branch
 from .tree_definition import Tree
 from math import log10, floor
+
+# add Python 2 xrange compatibility, to be removed
+# later when we switch to numpy loops
+if sys.version_info.major >= 3:
+    range = range
+else:
+    range = xrange
 
 class Leodis(object):
 
@@ -153,7 +160,7 @@ class Leodis(object):
 
         # Cycle through the unassigned array
         starthierarchy = time.time()
-        for i in xrange(0, unassigned_array_length):
+        for i in range(0, unassigned_array_length):
 
             if verbose and (count % 1 == 0):
                 progress_bar + 1
@@ -228,8 +235,8 @@ class Leodis(object):
         if verbose:
             progress_bar.progress = 100
             progress_bar.show_progress()
-            print ''
-            print ''
+            print('')
+            print('')
 
         endhierarchy = time.time()-starthierarchy
 
@@ -303,8 +310,8 @@ class Leodis(object):
             if verbose:
                 progress_bar.progress = 100  # Done
                 progress_bar.show_progress()
-                print ''
-                print ''
+                print('')
+                print('')
 
             endrelax = time.time()-startrelax
 
@@ -324,13 +331,13 @@ class Leodis(object):
         end = time.time()-start
 
         if verbose:
-            print('leodis took {0:0.1f} seconds for completion.').format(end)
-            print('Primary clustering took {0:0.1f} seconds for completion.').format(endhierarchy)
+            print('leodis took {0:0.1f} seconds for completion.'.format(end))
+            print('Primary clustering took {0:0.1f} seconds for completion.'.format(endhierarchy))
             if relaxcond==True:
-                print('Secondary clustering took {0:0.1f} seconds for completion.').format(endrelax)
-            print ''
-            print('leodis found a total of {0} clusters').format(len(self.clusters))
-            print ''
+                print('Secondary clustering took {0:0.1f} seconds for completion.'.format(endrelax))
+            print('')
+            print('leodis found a total of {0} clusters'.format(len(self.clusters)))
+            print('')
         return self
 
     def save_to(self, filename):
@@ -474,14 +481,14 @@ def get_links(self, index, tree, n_jobs, re=False):
         idx = init_query(tree, np.array([coords[0,0:2]]), self.cluster_criteria[0], n_jobs)
         link = np.ones(len(idx), dtype=bool)
         if len(self.cluster_criteria) != 1:
-            for i in xrange(len(self.cluster_criteria)-1):
+            for i in range(len(self.cluster_criteria)-1):
                 link = further_query(link, coords[0,4+i], self.unassigned_data[4+i,idx], self.cluster_criteria[1+i])
         link = idx[np.where(np.array(link)==True)]
     else:
         idx = init_query(tree, np.array([coords[0,0:3]]), self.cluster_criteria[0], n_jobs)
         link = np.ones(len(idx), dtype=bool)
         if len(self.cluster_criteria) != 1:
-            for i in xrange(len(self.cluster_criteria)-1):
+            for i in range(len(self.cluster_criteria)-1):
                 link = further_query(link, coords[0,5+i], self.unassigned_data[5+i,idx], self.cluster_criteria[1+i])
         link = idx[np.where(np.array(link)==True)]
 
@@ -589,7 +596,7 @@ def find_linked_clusters_single_antecessor(self, cluster, linked_clusters):
 
     # Establish the min/max values of all linked clusters and arrange in
     # descending order
-    floor = [link.merge_level for link in linked_clusters]
+    floor = [link.merge_level if link.merge_level else -np.inf for link in linked_clusters]
     ceiling = [link.descendants[0].merge_level if link.branch_cluster else np.inf for link in linked_clusters ]
     sort_idx = np.argsort(floor)[::-1]
     linked_clusters = [linked_clusters[idx] for idx in sort_idx ]
@@ -626,7 +633,7 @@ def find_linked_clusters_single_antecessor(self, cluster, linked_clusters):
                 while _linked_cluster.antecedent is not None:
                     _linked_cluster = _linked_cluster.antecedent
                     if _linked_cluster.antecedent == None:
-                        _floor = None
+                        _floor = -np.inf
                         _ceiling = _linked_cluster.descendants[0].merge_level
                         if (cluster_floor >= _floor) & (cluster_ceiling <= _ceiling):
                             slot[j] = True
@@ -1349,7 +1356,7 @@ def update_clusters(self):
     bud_list = []
     bud_indices = []
 
-    for cluster_index, cluster in self.clusters.iteritems():
+    for cluster_index, cluster in self.clusters.items():
         cluster_list.append(cluster)
         cluster_indices.append(cluster_index)
         if cluster.number_of_members < self.minnpix_cluster:
@@ -1422,7 +1429,7 @@ def check_components_test(self, _cluster, _linked_clusters):
 def get_forest(self):
 
     _antecessors = []
-    for key, cluster in self.clusters.iteritems():
+    for key, cluster in self.clusters.items():
         if cluster.leaf_cluster == True:
             _antecessors.append(cluster.antecessor)
     _antecessors = remdup_preserve_order(_antecessors)
@@ -1447,11 +1454,11 @@ def print_to_terminal(self, count, unassigned_array_length, method, re=False):
 
     if (re==False):
 
-        print ''
-        print 'Beginning analysis...'
-        print ''
+        print('')
+        print('Beginning analysis...')
+        print('')
         print("leodis will look for clusters within {}% of the data: ".format((100 * unassigned_array_length / self.data[0,:].size)))
-        print ''
+        print('')
         print("Method = {}".format(method))
         print("Max. Euclidean distance between linked data = {}".format(np.around(self.max_dist, decimals = 2)))
         print("Min. # of data points in a cluster = {}".format(np.around(self.minnpix_cluster, decimals = 0)))
@@ -1460,26 +1467,26 @@ def print_to_terminal(self, count, unassigned_array_length, method, re=False):
 
         if self.method == 0:
             if len(self.cluster_criteria) != 1:
-                print ''
-                print "Additional criteria: "
+                print('')
+                print("Additional criteria: ")
                 for j in range(4, len(self.data[:,0])):
                     print("Max. absolute difference between column {} data = {}".format(j, np.around(self.cluster_criteria[j-3], decimals = 2)))
         if self.method == 1:
             print("Max. absolute velocity difference between linked data = {}".format(np.around(self.cluster_criteria[1], decimals = 2)))
-            print ''
+            print('')
             if len(self.cluster_criteria) > 2:
-                print "Additional criteria: "
+                print("Additional criteria: ")
                 for j in range(5, len(self.data[:,0])):
                     print("Max. absolute difference between column {} data = {}".format(j, np.around(self.cluster_criteria[j-3], decimals = 2)))
         if self.method == 2:
             if len(self.cluster_criteria) != 1:
-                print ''
-                print "Additional criteria: "
+                print('')
+                print("Additional criteria: ")
                 for j in range(4, len(self.data[:,0])):
                     print("Max. absolute difference between column {} data = {}".format(j, np.around(self.cluster_criteria[j-3], decimals = 2)))
 
-        print 'Primary clustering...'
-        print ''
+        print('Primary clustering...')
+        print('')
         progress_bar = AnimatedProgressBar(end=unassigned_array_length, width=50, \
                                            fill='=', blank='.')
 
@@ -1487,15 +1494,15 @@ def print_to_terminal(self, count, unassigned_array_length, method, re=False):
         relaxval = (100 * self.relax)
         if np.size(self.relax) == 1:
             print("Relaxing the linking constraints by {}%...".format(int(relaxval)))
-            print ''
-            print 'Secondary clustering...'
-            print ''
+            print('')
+            print('Secondary clustering...')
+            print('')
         else:
             for j in range(np.size(self.relax)):
                 print("Relaxing the linking constraint {} by {}%...".format(j+1, int(relaxval[j])))
-            print ''
-            print 'Secondary clustering...'
-            print ''
+            print('')
+            print('Secondary clustering...')
+            print('')
         progress_bar = AnimatedProgressBar(end=unassigned_array_length, width=50, \
                                            fill='=', blank='.')
 

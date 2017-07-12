@@ -25,13 +25,13 @@ for tree in L.forest:
         L.forest[tree].trunk.output_cluster_table(outputfileascii, format="ascii", extended=dataarr, leodis_cols=leodis_cols)
         L.forest[tree].trunk.output_cluster_table(outputfilefits, format="fits", extended=dataarr, leodis_cols=leodis_cols, headings=headings)
         t = Table.read(outputfilefits)
-        print t
-        print ""
+        print(t)
+        print("")
     else:
         outputfileascii = outputdirectoryascii+'leodis_hierarchical_tree_'+str(tree)+'.dat'
         outputfilefits = outputdirectoryfits+'leodis_hierarchical_tree_'+str(tree)+'.fits'
         L.forest[tree].trunk.output_cluster_table(outputfileascii, format="ascii", extended=dataarr, leodis_cols=leodis_cols)
         L.forest[tree].trunk.output_cluster_table(outputfilefits, format="fits", extended=dataarr, leodis_cols=leodis_cols, headings=headings)
         t = Table.read(outputfilefits)
-        print t
-        print ""
+        print(t)
+        print("")
