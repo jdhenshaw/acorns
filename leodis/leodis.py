@@ -41,7 +41,7 @@ class Leodis(object):
     def process(data, cluster_criteria, method = "PP", \
                 min_height = 0, pixel_size = 0, \
                 relax = 0, stop = 0, \
-                verbose = False ):
+                verbose = False, n_jobs = 1 ):
 
         """
 
@@ -167,7 +167,7 @@ class Leodis(object):
             bud_cluster = Cluster(data_point, idx=self.cluster_idx, leodis=self)
 
             # Calculate distances between all data points
-            link = get_links(self, i, tree)
+            link = get_links(self, i, tree, n_jobs)
 
             # Find clusters that are closely associated with the current data
             # point
@@ -287,7 +287,7 @@ class Leodis(object):
                 bud_cluster = Cluster(data_point, idx=self.cluster_idx, leodis=self)
 
                 # Calculate distances between all data points
-                link = get_links(self, i, tree, re=True)
+                link = get_links(self, i, tree, n_jobs, re=True)
 
                 # Find clusters that are closely associated with the current
                 # data point
@@ -443,7 +443,7 @@ def find_unassigned_data(self, stop):
 
     return self
 
-def get_links(self, index, tree, re=False):
+def get_links(self, index, tree, n_jobs, re=False):
     """
     Find the distances between the data point and all other data points
     Physical separations calculated using euclidean distance.
@@ -465,86 +465,45 @@ def get_links(self, index, tree, re=False):
     """
 
     if re == False:
-        coords = np.array([self.unassigned_data[0:2,index]])
+        coords = np.array([self.unassigned_data[:,index]])
     else:
-        coords = np.array([self.unassigned_data_relax[0:2,index]])
+        coords = np.array([self.unassigned_data_relax[:,index]])
 
     sep = None
-    if self.method == 0:
-        idx = tree.query_ball_point(coords, self.cluster_criteria[0], eps = 0,  n_jobs=1)
-        idx = np.array(idx[0])
-        idx = idx[np.where(idx != 0)]
+    if self.method <= 1:
+        idx = init_query(tree, np.array([coords[0,0:2]]), self.cluster_criteria[0], n_jobs)
         link = np.ones(len(idx), dtype=bool)
-        if re == False:
-            if len(self.cluster_criteria) != 1:
-                for i in xrange(len(self.cluster_criteria)-1):
-                    val = self.unassigned_data[4+i,index]
-                    sep = np.abs(val - unassigned_data[4+i,idx])
-                    link = (sep <= self.cluster_criteria[1+i]) & (link==True)
-                    sep = None
-            link = idx[np.where(np.array(link)==True)]
-        else:
-            if len(self.cluster_criteria) != 1:
-                for i in xrange(len(self.cluster_criteria)-1):
-                    val_relax = self.unassigned_data_relax[4+i,index]
-                    sep = np.abs(val_relax - self.unassigned_data[4+i,idx])
-                    link = (sep <= self.cluster_criteria[1+i]) & (link==True)
-                    sep = None
-            link = idx[np.where(np.array(link)==True)]
-
-    if self.method == 1:
-        idx = tree.query_ball_point(coords, self.cluster_criteria[0], eps = 0, n_jobs = 1)
-        idx = np.array(idx[0])
-        idx = idx[np.where(idx != 0)]
+        if len(self.cluster_criteria) != 1:
+            for i in xrange(len(self.cluster_criteria)-1):
+                link = further_query(link, coords[0,4+i], self.unassigned_data[4+i,idx], self.cluster_criteria[1+i])
+        link = idx[np.where(np.array(link)==True)]
+    else:
+        idx = init_query(tree, np.array([coords[0,0:3]]), self.cluster_criteria[0], n_jobs)
         link = np.ones(len(idx), dtype=bool)
-        if re == False:
-            velocity = self.unassigned_data[4,index]
-            sep = np.abs(velocity - self.unassigned_data[4,idx])
-            link = (sep <= self.cluster_criteria[1])
-            sep = None
+        if len(self.cluster_criteria) != 1:
+            for i in xrange(len(self.cluster_criteria)-1):
+                link = further_query(link, coords[0,5+i], self.unassigned_data[5+i,idx], self.cluster_criteria[1+i])
+        link = idx[np.where(np.array(link)==True)]
 
-            if len(self.cluster_criteria) != 2:
-                for i in xrange(len(self.cluster_criteria)-2):
-                    val = self.unassigned_data[5+i,index]
-                    sep = np.abs(val - self.unassigned_data[5+i,idx])
-                    link = (sep <= self.cluster_criteria[2+i]) & (link==True)
-                    sep = None
-            link = idx[np.where(np.array(link)==True)]
-        else:
-            velocity_relax = self.unassigned_data_relax[4,index]
-            sep = np.abs(velocity_relax - self.unassigned_data[4,idx])
-            link = (sep <= self.cluster_criteria[1])
-            sep = None
-            if len(self.cluster_criteria) != 2:
-                for i in xrange(len(self.cluster_criteria)-2):
-                    val_relax = self.unassigned_data_relax[5+i,index]
-                    sep = np.abs(val_relax - self.unassigned_data[5+i,idx])
-                    link = (sep <= self.cluster_criteria[2+i]) & (link==True)
-                    sep = None
-            link = idx[np.where(np.array(link)==True)]
+    return link
 
-    if self.method == 2:
-        coords = np.array([self.unassigned_data[0:3,index]])
-        idx = tree.query_ball_point(coords, self.cluster_criteria[0], eps = 0, n_jobs=1)
-        idx = np.array(idx[0])
-        idx = idx[np.where(idx != 0)]
-        link = np.ones(len(idx), dtype=bool)
-        if re == False:
-            if len(self.cluster_criteria) != 1:
-                for i in xrange(len(self.cluster_criteria)-1):
-                    val = self.unassigned_data[5+i,index]
-                    sep = np.abs(val - unassigned_data[5+i,idx])
-                    link = (sep <= self.cluster_criteria[1+i]) & (link==True)
-                    sep = None
-            link = idx[np.where(np.array(link)==True)]
-        else:
-            if len(self.cluster_criteria) != 1:
-                for i in xrange(len(self.cluster_criteria)-1):
-                    val_relax = self.unassigned_data_relax[5+i,index]
-                    sep = np.abs(val_relax - unassigned_data[5+i,idx])
-                    link = (sep <= self.cluster_criteria[1+i]) & (link==True)
-                    sep = None
-            link = idx[np.where(np.array(link)==True)]
+def init_query(tree, coords, r, n_jobs):
+    """
+    Performs initial query of KD Tree
+    """
+    idx = tree.query_ball_point(coords, r, eps = 0, n_jobs = n_jobs)
+    idx = np.array(idx[0])
+    idx = idx[np.where(idx != 0)]
+
+    return idx
+
+def further_query(link, coords, unassigned_data, r ):
+    """
+    Performs a search based on additional linking criteria
+    """
+
+    sep = np.abs(coords - unassigned_data)
+    link = (sep <= r) & (link==True)
 
     return link
 
