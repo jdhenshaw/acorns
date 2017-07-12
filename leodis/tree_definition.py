@@ -327,7 +327,7 @@ def _dendrogram_positions(self):
             self._horizontals[0].append(np.array([np.min(np.asarray(x_loc_descendants)) ,np.min(np.asarray(x_loc_descendants))+range_x]))
             self._horizontals[1].append(np.array([self.tree_members[i].descendants[0].merge_level, self.tree_members[i].descendants[0].merge_level]))
 
-    #print self.horizontals
+    #print(self.horizontals)
     #sys.exit()
 
     return self

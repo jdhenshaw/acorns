@@ -81,8 +81,8 @@ def output_fits(self, outputfile, extended=None, leodis_cols=None, headings=None
     """
     table = make_table(self, extended=extended, leodis_cols=leodis_cols, headings=headings )
     table.write(outputfile, format='fits', overwrite=True)
-    #print table
-    #print ""
+    #print(table)
+    #print("")
 
     return
 

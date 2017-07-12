@@ -7,13 +7,13 @@ basic way.
 Here is some basic usage with the default options:
     >>> from progressbar import ProgressBar
     >>> p = ProgressBar()
-    >>> print p
+    >>> print(p)
     [>............] 0%
     >>> p + 1
-    >>> print p
+    >>> print(p)
     [=>...........] 10%
     >>> p + 9
-    >>> print p
+    >>> print(p)
     [============>] 0%
 And here another example with different options:
     >>> from progressbar import ProgressBar
@@ -24,13 +24,13 @@ And here another example with different options:
     ...     'format': '%(progress)s%% [%(fill)s%(blank)s]'
     ... }
     >>> p = ProgressBar(**custom_options)
-    >>> print p
+    >>> print(p)
     0% [....................]
     >>> p + 5
-    >>> print p
+    >>> print(p)
     5% [#...................]
     >>> p + 9
-    >>> print p
+    >>> print(p)
     100% [####################]
 Source: https://github.com/ikame/progressbar
 """
