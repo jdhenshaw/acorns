@@ -44,5 +44,5 @@ relax = np.array([1.5,0.5,1.0])
 stop = 3.
 
 # Call leodis
-L = Leodis.process( dataarr_leodis, cluster_criteria, method = "PPV", min_height = min_height, pixel_size = pixel_size, relax=relax, stop = stop, verbose=True, n_jobs=-1 )
+L = Leodis.process( dataarr_leodis, cluster_criteria, method = "PPV", min_height = min_height, pixel_size = pixel_size, relax=relax, stop = stop, verbose=True, interactive = False, n_jobs=-1 )
 L.save_to(datadirectory+'example.leodis')
