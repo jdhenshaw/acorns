@@ -29,6 +29,11 @@ if sys.version_info.major >= 3:
 else:
     range = xrange
 
+try:
+    input = raw_input
+except NameError:
+    pass
+
 class Leodis(object):
 
     def __init__(self):
@@ -140,25 +145,26 @@ class Leodis(object):
         self.clusters = {}
         self.forest = {}
 
-        # Generate the unassigned data array
-        self = find_unassigned_data(self, stop)
-        unassigned_array_length = len(self.unassigned_data[0,:])
-
-        count= 0.0
-        if verbose:
-            progress_bar = print_to_terminal(self, count, \
-                                             unassigned_array_length, method)
-
 #==============================================================================#
         """
         Main controlling routine for leodis
         """
+
+        self = find_unassigned_data(self, stop)
 
         if self.method==2:
             coordinates = self.unassigned_data[0:3,:]
         else:
             coordinates = self.unassigned_data[0:2,:]
         tree = cKDTree(np.transpose(coordinates))
+
+        # Generate the unassigned data array
+        unassigned_array_length = len(self.unassigned_data[0,:])
+
+        count= 0.0
+        if verbose:
+            progress_bar = print_to_terminal(self, count, \
+                                             unassigned_array_length, method)
 
         # Cycle through the unassigned array
         starthierarchy = time.time()
@@ -240,69 +246,50 @@ class Leodis(object):
             print('')
             print('')
 
-        endhierarchy = time.time()-starthierarchy
-
-        #sys.exit()
-#==============================================================================#
-        """
-        # Secondary controlling routine for leodis
-
-        """
-
         # Remove insignificant clusters from the clusters dictionary and update
         # the unassigned array
         self, cluster_list, cluster_indices = update_clusters(self)
 
-        if relaxcond==True:
-            """
+        # Take a second pass at the data without relaxing the linking criteria
+        # to pick up any remaining stragglers not linked during the first pass
+        self, cluster_list, cluster_indices = relax_steps(self, method, verbose, tree, n_jobs, second_pass=True)
 
-            Notes
-            -----
+        endhierarchy = time.time()-starthierarchy
 
-            At this stage the main hierarchy has been established. If
-            the 'relax' key word has been implemented by the user - the
-            linking constraints will be relaxed and leodis will make a
-            second pass at linking some of the remaining unassigned data.
+#==============================================================================#
+        """
+        Secondary controlling routine for leodis implemented if the linking
+        criteria are relaxed by the user
 
-            """
+        """
 
+        if (relaxcond==True) and (interactive==False):
             startrelax = time.time()
-
             cluster_criteria_original = cluster_criteria
-            if not interactive:
-                self.cluster_criteria = get_relaxed_cluster_criteria(self.relax, cluster_criteria_original)
-                self.unassigned_data_relax = self.unassigned_data_updated
-                self = relax_method(self, method, verbose, tree, n_jobs, plot=False)
-                self, cluster_list, cluster_indices = update_clusters(self)
-                if verbose:
-                    progress_bar.progress = 100  # Done
-                    progress_bar.show_progress()
-                    print('')
-                    print('')
-            else:
-                leodis_plots.plot_scatter(self)
-                stop = True
-                while stop != False:
-                    # Relax
-                    self.relax = np.array(input("Please enter relax values in list format: "))
-                    print('')
-                    self.cluster_criteria = get_relaxed_cluster_criteria(self.relax, cluster_criteria_original)
-                    self.unassigned_data_relax = self.unassigned_data_updated
-                    self = relax_method(self, method, verbose, tree, n_jobs, plot=True)
-                    self, cluster_list, cluster_indices = update_clusters(self)
-
-                    if verbose:
-                        progress_bar.progress = 100  # Done
-                        progress_bar.show_progress()
-                        print('')
-                        print('')
-
-                    leodis_plots.plot_scatter(self)
-
-                    s = str(raw_input("Would you like to continue (True/False)? "))
-                    stop = s in ['True', 'T', 'true', '1', 't', 'y', 'yes']
-
+            self.cluster_criteria = get_relaxed_cluster_criteria(self.relax, cluster_criteria_original)
+            self, cluster_list, cluster_indices = relax_steps(self, method, verbose, tree, n_jobs, second_pass=False)
             endrelax = time.time()-startrelax
+
+        elif (interactive==True):
+            startrelax = time.time()
+            cluster_criteria_original = cluster_criteria
+            leodis_plots.plot_scatter(self)
+            stop = True
+            while stop != False:
+                # Relax
+                self.relax = np.array(eval(input("Please enter relax values in list format: ")))
+                print('')
+                self.cluster_criteria = get_relaxed_cluster_criteria(self.relax, cluster_criteria_original)
+                self, cluster_list, cluster_indices = relax_steps(self, method, verbose, tree, n_jobs, second_pass=False)
+                leodis_plots.plot_scatter(self)
+                s = str(input("Would you like to continue (True/False)? "))
+                print('')
+                stop = s in ['True', 'T', 'true', '1', 't', 'y', 'yes']
+            endrelax = time.time()-startrelax
+
+        else:
+            pass
+
 
 #==============================================================================#
         """
@@ -326,6 +313,8 @@ class Leodis(object):
             print('')
         return self
 
+#==============================================================================#
+
     def save_to(self, filename):
         """
         Saves the output leodis file
@@ -346,16 +335,30 @@ class Leodis(object):
 # Methods
 #==============================================================================#
 
-def relax_method(self, method, verbose, tree, n_jobs, plot=False):
+def relax_method(self, method, verbose, tree, n_jobs, second_pass = False):
+    """
+
+    Notes
+    -----
+
+    At this stage the main hierarchy has been established. If
+    the 'relax' key word has been implemented by the user - the
+    linking constraints will be relaxed and leodis will make a
+    second pass at linking some of the remaining unassigned data.
+
+    """
 
     unassigned_array_length = len(self.unassigned_data_relax[0,:])
 
     count=0.0
-    if verbose:
+    if verbose and second_pass:
         progress_bar = print_to_terminal(self, count, \
                                          unassigned_array_length,\
-                                         method, re=True)
-
+                                         method, re=False, second_pass=second_pass)
+    else:
+        progress_bar = print_to_terminal(self, count, \
+                                         unassigned_array_length,\
+                                         method, re=True, second_pass=second_pass)
     # Now run the linking again with the relaxed constraints
     for i in range(0, unassigned_array_length):
 
@@ -385,7 +388,25 @@ def relax_method(self, method, verbose, tree, n_jobs, plot=False):
         else:
             self = resolve_ambiguity(self, linked_clusters, bud_cluster, re = True)
 
+    if verbose:
+        progress_bar.progress = 100  # Done
+        progress_bar.show_progress()
+        print('')
+        print('')
+
     return self
+
+def relax_steps(self, method, verbose, tree, n_jobs, second_pass = False, plot=False):
+    """
+    Main steps taken when the linking criteria are relaxed
+    
+    """
+
+    self.unassigned_data_relax = self.unassigned_data_updated
+    self = relax_method(self, method, verbose, tree, n_jobs, second_pass=second_pass)
+    self, cluster_list, cluster_indices = update_clusters(self)
+
+    return self, cluster_list, cluster_indices
 
 def get_minnpix(self, pixel_size, radius):
     """
@@ -1144,7 +1165,6 @@ def update_leodis_array(self, cluster, value):
 
     return self
 
-
 def branching(self, linked_clusters, cluster, re = False):
     """
     Methodology for creating a new branch.
@@ -1475,12 +1495,12 @@ def get_forest(self):
     #print self.forest[1].tree_members
     return self
 
-def print_to_terminal(self, count, unassigned_array_length, method, re=False):
+def print_to_terminal(self, count, unassigned_array_length, method, re=False, second_pass=False):
     """
     Prints some information to the terminal if verbose == True
     """
 
-    if (re==False):
+    if (re==False) and (second_pass==False):
 
         print('')
         print('Beginning analysis...')
@@ -1518,7 +1538,7 @@ def print_to_terminal(self, count, unassigned_array_length, method, re=False):
         progress_bar = AnimatedProgressBar(end=unassigned_array_length, width=50, \
                                            fill='=', blank='.')
 
-    else:
+    elif (re==True) and (second_pass==False):
         relaxval = (100 * self.relax)
         if np.size(self.relax) == 1:
             print("Relaxing the linking constraints by {}%...".format(int(relaxval)))
@@ -1531,6 +1551,11 @@ def print_to_terminal(self, count, unassigned_array_length, method, re=False):
             print('')
             print('Secondary clustering...')
             print('')
+        progress_bar = AnimatedProgressBar(end=unassigned_array_length, width=50, \
+                                           fill='=', blank='.')
+    else:
+        print("Making second pass...")
+        print('')
         progress_bar = AnimatedProgressBar(end=unassigned_array_length, width=50, \
                                            fill='=', blank='.')
 
