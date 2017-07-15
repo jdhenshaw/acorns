@@ -18,7 +18,6 @@ If method = "PPV" leodis requires an array in the following format:
 x, y, I, sigI, vel, + any other variables req'd for the linking.
 """
 
-
 datadirectory =  './'
 datafilename =  datadirectory+'fits_final_pdbi.dat'
 
@@ -33,16 +32,20 @@ dataarr_leodis = np.array([dataarr[0,:],dataarr[1,:],dataarr[2,:],dataarr[3,:], 
 pixel_size = 1.969
 min_radius = 3.332 # Ensures 9 pixels defines the smallest structure identified
 min_height = 3.0*np.mean(dataarr[6,:]) # Clusters have to be at least this value above the merge level
-velo_link = 0.14 # Velocity resolution of the data
+velo_link = 0.07 # Velocity resolution of the data
 dv_link = 0.28 # If you would also like to link using the LW as an additional criterion
 
 # Generate the cluster_criteria
 cluster_criteria = np.array([min_radius, velo_link, dv_link])
 # Relax criterias
-relax = np.array([1.5,0.5,1.0]) # for interactive set to 0.0 and set interactive = True when calling leodis
+relax = np.array([1.5,2.0,1.0]) # for interactive set to 0.0 and set interactive = True when calling leodis
 # Stopping criteria
 stop = 3.
+# number of cores used in finding nearest neighbouts. all = -1
+n_jobs = -1
+verbose = True
+interactive = False
 
 # Call leodis
-L = Leodis.process( dataarr_leodis, cluster_criteria, method = "PPV", min_height = min_height, pixel_size = pixel_size, relax=relax, stop = stop, verbose=True, interactive = False, n_jobs=-1 )
+L = Leodis.process( dataarr_leodis, cluster_criteria, method = "PPV", min_height = min_height, pixel_size = pixel_size, relax=relax, stop = stop, verbose=verbose, interactive = interactive, n_jobs=n_jobs )
 L.save_to(datadirectory+'example.leodis')

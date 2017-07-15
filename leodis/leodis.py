@@ -19,6 +19,7 @@ from .cluster_definition import Cluster
 from .cluster_definition import merge_clusters
 from .cluster_definition import merge_data
 from .cluster_definition import form_a_branch
+from .cluster_definition import update_antecedent
 from .tree_definition import Tree
 from math import log10, floor
 
@@ -253,7 +254,6 @@ class Leodis(object):
         # Take a second pass at the data without relaxing the linking criteria
         # to pick up any remaining stragglers not linked during the first pass
         self, cluster_list, cluster_indices = relax_steps(self, method, verbose, tree, n_jobs, second_pass=True)
-
         endhierarchy = time.time()-starthierarchy
 
 #==============================================================================#
@@ -282,21 +282,22 @@ class Leodis(object):
                 self.cluster_criteria = get_relaxed_cluster_criteria(self.relax, cluster_criteria_original)
                 self, cluster_list, cluster_indices = relax_steps(self, method, verbose, tree, n_jobs, second_pass=False)
                 leodis_plots.plot_scatter(self)
-                s = str(input("Would you like to continue (True/False)? "))
+                s = str(input("Would you like to continue? "))
                 print('')
-                stop = s in ['True', 'T', 'true', '1', 't', 'y', 'yes']
+                stop = s in ['True', 'T', 'true', '1', 't', 'y', 'yes', 'Y', 'Yes']
             endrelax = time.time()-startrelax
 
         else:
             pass
 
+        self, cluster_list, cluster_indices = update_clusters(self)
 
 #==============================================================================#
         """
         Tidy everything up for output
 
         """
-
+        self, cluster_list, cluster_indices = update_clusters(self)
         self = leodis_io.reshape_leodis_array(self)
         self.unassigned_array = self.data[:,np.squeeze(np.where(self.leodis_arr[2,:]==-1))]
         self = get_forest(self)
@@ -309,7 +310,11 @@ class Leodis(object):
             if relaxcond==True:
                 print('Secondary clustering took {0:0.1f} seconds for completion.'.format(endrelax))
             print('')
-            print('leodis found a total of {0} clusters'.format(len(self.clusters)))
+            print('leodis found a total of {0} clusters.'.format(len(self.clusters)))
+            print('')
+            print('A total of {0} data points were used in the search.').format(len(self.unassigned_data[0,:]))
+            print('A total of {0} data points were assigned to clusters.').format(num_links(self))
+            print('A total of {0} data points remain unassigned to clusters.').format(len(self.unassigned_data_relax[0,:]))
             print('')
         return self
 
@@ -359,6 +364,7 @@ def relax_method(self, method, verbose, tree, n_jobs, second_pass = False):
         progress_bar = print_to_terminal(self, count, \
                                          unassigned_array_length,\
                                          method, re=True, second_pass=second_pass)
+
     # Now run the linking again with the relaxed constraints
     for i in range(0, unassigned_array_length):
 
@@ -399,12 +405,13 @@ def relax_method(self, method, verbose, tree, n_jobs, second_pass = False):
 def relax_steps(self, method, verbose, tree, n_jobs, second_pass = False, plot=False):
     """
     Main steps taken when the linking criteria are relaxed
-    
+
     """
 
     self.unassigned_data_relax = self.unassigned_data_updated
     self = relax_method(self, method, verbose, tree, n_jobs, second_pass=second_pass)
     self, cluster_list, cluster_indices = update_clusters(self)
+    self.unassigned_data_relax = self.unassigned_data_updated
 
     return self, cluster_list, cluster_indices
 
@@ -812,7 +819,7 @@ def bud_check(self, cluster, linked_clusters):
             # Merge all buds.
             for bud_cluster in linked_buds:
                 self.clusters.pop(bud_cluster.cluster_idx)
-                self = update_leodis_array(self, linked_bud, -1)
+                self = update_leodis_array(self, bud_cluster, -1)
                 self = merge_into_cluster(self, linked_bud, bud_cluster)
             linked_buds = [linked_bud]
 
@@ -1151,6 +1158,7 @@ def resolve_ambiguity(self, linked_clusters, cluster, re = False):
     # Now merge any remaining buds into linked cluster
     for bud_cluster in linked_buds:
         self.clusters.pop(bud_cluster.cluster_idx)
+        self = update_leodis_array(self, bud_cluster, -1)
         self = merge_into_cluster(self, linked_cluster, bud_cluster, re = re)
 
     return self
@@ -1180,26 +1188,46 @@ def branching(self, linked_clusters, cluster, re = False):
         # create any redundant branches.
         _linked_clusters = [_cluster.antecessor for _cluster in linked_clusters]
         _linked_clusters = remove_branch(self, _linked_clusters, cluster)
+
         # Slot the cluster in at the correct level in the hierarchy.
-        # Find the closest matching cluster
+        # Find the closest matching linked cluster
         var = []
-        for link in linked_clusters:
+        for link in _linked_clusters:
             var = get_var(self, cluster, link, var)
         keepidx = np.squeeze(np.where(np.asarray(var) == min(np.asarray(var))))
         if keepidx.size != 1:
             keepidx = keepidx[0]
-        _linked_cluster_ = linked_clusters[keepidx]
+        _linked_cluster_ = _linked_clusters[keepidx]
         _cluster_ = cluster
         _linked_cluster = _linked_cluster_
+
         # Merge downwards until loedis reaches the antecessor.
-        while _linked_cluster.antecedent is not None:
-            _linked_cluster = merge_clusters(_linked_cluster, _cluster_, branching=True)
-            _linked_cluster = _linked_cluster.antecedent
+
+        if _linked_cluster.antecedent == None:
+            pass
+        else:
+            while _linked_cluster.antecedent is not None:
+                _linked_cluster = _linked_cluster.antecedent
+                _linked_cluster = merge_clusters(_linked_cluster, _cluster_, branching=True)
+
+        _cluster_members = cluster.cluster_members
+        _cluster_indices = []
+        for j in range(np.size(_cluster_members[0,:])):
+            _cluster_indices.append(cluster.cluster_indices[j])
 
         # Form the branch
         self.clusters[cluster.cluster_idx] = cluster
         self = update_leodis_array(self, cluster, cluster.cluster_idx)
         linked_cluster = form_a_branch(cluster, descendants = _linked_clusters)
+        idx = np.squeeze(np.where(self.leodis_arr[2,:] == cluster.cluster_idx))
+
+        # Merge data into correct _linked_cluster_ afterwards - otherwise points
+        # will be linked more than once
+        if np.size(_cluster_indices)==1:
+            _linked_cluster_ = merge_data(_linked_cluster_, _cluster_members[:,0])
+        else:
+            for j in range(np.size(_cluster_indices)):
+                _linked_cluster_ = merge_data(_linked_cluster_, _cluster_members[:,j])
 
     return self, linked_cluster
 
@@ -1264,6 +1292,7 @@ def remove_branch(self, linked_clusters, cluster):
     _rembranch = _rembranch_
     # If there are any instances where _rembranch is true - this branch should
     # be removed and replaced with the branch descendants in linked_clusters.
+
     if np.any(_rembranch):
         _linked_clusters = [[item] for item in linked_clusters]
         for i in range(len(_rembranch)):
@@ -1291,33 +1320,44 @@ def correct_branching(self, rembranch, cluster):
     hierarchies so all we have to do is merge them with cluster.
 
     """
-
     # Generate two sets - one containing all of the cluster_indices in rembranch
     # and another containing the cluster_indices in rembranch's descendants.
     set_rembranch = set(rembranch.cluster_indices)
-    set_rembranch_descendants = set(rembranch.descendants[0].cluster_indices) | set(rembranch.descendants[1].cluster_indices)
+    set_rembranch_descendants = set(rembranch.descendants[0].cluster_indices)
+    lendescendants = len(rembranch.descendants)
+    for j in range(1, lendescendants):
+        set_rembranch_descendants = set_rembranch_descendants | set(rembranch.descendants[j].cluster_indices)
+
     # The difference between these sets are the data points that are unique to
     # the branch we are trying to get rid of - merge these with cluster, after
     # which we can delete the branch.
     branch_indices = list(set_rembranch-set_rembranch_descendants)
+    branch_indices = np.array(branch_indices)
+    branch_indices = branch_indices[np.where(branch_indices != rembranch.cluster_idx)]
     if np.size(branch_indices) != 0.0:
         for i in range(len(branch_indices)):
-            idx = np.squeeze(np.where(rembranch.cluster_indices == branch_indices[i]))
+            idx = np.squeeze(np.where(rembranch.cluster_indices == branch_indices[i]))#
             if np.size(idx)==1:
                 cluster = merge_data(cluster, rembranch.cluster_members[:,idx])
             else:
                 for j in range(np.size(idx)):
                     cluster = merge_data(cluster, rembranch.cluster_members[:,idx[j]])
-    # Remove the branch and set corresponding data in leodis_arr to -1 (these
-    # will be updated with the new branch indices during the merger).
+
+    # Remove the branch and set corresponding data in leodis_arr to the cluster
+    # idx.
     self.clusters.pop(rembranch.cluster_idx)
     idx = np.squeeze(np.where(self.leodis_arr[2,:] == rembranch.cluster_idx))
     if np.size(idx) != 0.0:
         if np.size(idx) == 1.0:
-            self.leodis_arr[2, idx] = -1
+            self.leodis_arr[2, idx] = cluster.cluster_idx
         else:
             for j in range(np.size(idx)):
-                self.leodis_arr[2, idx[j]] = -1
+                self.leodis_arr[2, idx[j]] = cluster.cluster_idx
+
+    # reset the antecedent/antecessor of the rembranch descendants
+    for descendant in rembranch.descendants:
+        descendant.reset_antecedent()
+        descendant.reset_antecessor()
 
     return self
 
@@ -1404,11 +1444,12 @@ def update_clusters(self):
     bud_indices = []
 
     for cluster_index, cluster in self.clusters.items():
-        cluster_list.append(cluster)
-        cluster_indices.append(cluster_index)
         if cluster.number_of_members < self.minnpix_cluster:
             bud_list.append(cluster)
             bud_indices.append(cluster_index)
+        else:
+            cluster_list.append(cluster)
+            cluster_indices.append(cluster_index)
 
     unassigned_data_updated = []
     for i in range(len(bud_indices)):
@@ -1421,8 +1462,11 @@ def update_clusters(self):
     unassigned_data_updated = [list(x) for x in {(tuple(e)) for e in unassigned_data_updated}]
     unassigned_data_updated = np.transpose(unassigned_data_updated)
 
-    sortidx = np.argsort(unassigned_data_updated[2,:])[::-1]
-    self.unassigned_data_updated = unassigned_data_updated[:,sortidx]
+    if np.size(unassigned_data_updated) != 0.0:
+        sortidx = np.argsort(unassigned_data_updated[2,:])[::-1]
+        self.unassigned_data_updated = unassigned_data_updated[:,sortidx]
+    else:
+        pass
 
     return self, cluster_list, cluster_indices
 
@@ -1435,6 +1479,7 @@ def get_relaxed_cluster_criteria(relax, cluster_criteria_original_):
     cluster_criteria_ = None
     cluster_criteria_relax_ = None
     # Get new clustering criteria
+
     if np.size(relax) == 1:
         cluster_criteria_relax_ = cluster_criteria_relax_+(cluster_criteria_relax_*relax)
         cluster_criteria_ = cluster_criteria_relax_
@@ -1492,8 +1537,18 @@ def get_forest(self):
         self.forest[_tree_idx] = tree
         _tree_idx += 1
 
-    #print self.forest[1].tree_members
     return self
+
+def num_links(self):
+    """
+    Returns the total number of data points that have been assigned to clusters
+    """
+    count=0.0
+    for cluster in self.clusters:
+        if self.clusters[cluster] == self.clusters[cluster].antecessor:
+            numberofmembers=self.clusters[cluster].number_of_members
+            count+=numberofmembers
+    return count
 
 def print_to_terminal(self, count, unassigned_array_length, method, re=False, second_pass=False):
     """
@@ -1547,7 +1602,7 @@ def print_to_terminal(self, count, unassigned_array_length, method, re=False, se
             print('')
         else:
             for j in range(np.size(self.relax)):
-                print("Relaxing the linking constraint {} by {}%...".format(j+1, int(relaxval[j])))
+                print("Relaxing linking constraint {} by {}%...".format(j+1, int(relaxval[j])))
             print('')
             print('Secondary clustering...')
             print('')
