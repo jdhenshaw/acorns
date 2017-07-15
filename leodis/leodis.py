@@ -19,7 +19,6 @@ from .cluster_definition import Cluster
 from .cluster_definition import merge_clusters
 from .cluster_definition import merge_data
 from .cluster_definition import form_a_branch
-from .cluster_definition import update_antecedent
 from .tree_definition import Tree
 from math import log10, floor
 

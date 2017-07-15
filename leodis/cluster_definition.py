@@ -406,13 +406,3 @@ def form_a_branch(self, descendants = []):
         self = merge_clusters(self, descendant, branching = True)
 
     return self
-
-def update_antecedent(self):
-    """
-    Update the antecedent of redundant branch clusters
-    """
-
-    #print self.antecedent
-    #self = _reset_antecedent(self)
-
-    return self
