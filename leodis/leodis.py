@@ -311,9 +311,9 @@ class Leodis(object):
             print('')
             print('leodis found a total of {0} clusters.'.format(len(self.clusters)))
             print('')
-            print('A total of {0} data points were used in the search.').format(len(self.unassigned_data[0,:]))
-            print('A total of {0} data points were assigned to clusters.').format(num_links(self))
-            print('A total of {0} data points remain unassigned to clusters.').format(len(self.unassigned_data_relax[0,:]))
+            print('A total of {0} data points were used in the search.'.format(len(self.unassigned_data[0,:])))
+            print('A total of {0} data points were assigned to clusters.'.format(num_links(self)))
+            print('A total of {0} data points remain unassigned to clusters.'.format(len(self.unassigned_data_relax[0,:])))
             print('')
         return self
 
@@ -609,6 +609,13 @@ def find_linked_clusters(self, index, cluster, linked_indices, re = False):
             else:
                 linked_clusters = find_linked_clusters_multiple_antecessors(self, cluster, linked_clusters, antecessors)
 
+        if re == True:
+            # During the relax phase - remove any linked clusters whose
+            # properties differ by more than 3sigma from those of the cluster.
+            var = []
+            for link in linked_clusters:
+                var = get_var(self, cluster, link, var)
+            linked_clusters, var = remove_outliers(self, linked_clusters, var)
         if self.method == 1:
             # If method == PPV then we also want to prevent multiple components
             # located at the same location from being linked together.
