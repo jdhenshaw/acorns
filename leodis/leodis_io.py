@@ -26,6 +26,9 @@ def reshape_leodis_array(self):
                                   (self.leodis_arr[3,:] == self.data[2,j]) & \
                                   (self.leodis_arr[4,:] == self.data[3,j])))
 
+        if np.size(idx) == 0:
+            _leodis_arr[0:2,j] = self.data[0:2,j]
+            _leodis_arr[2, j] = -1
 
         if np.size(idx) == 1:
             _leodis_arr[0:2,j] = self.data[0:2,j]

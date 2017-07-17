@@ -203,6 +203,18 @@ class Cluster(object):
         else:
             raise IOError("Please enter a valid output format (ascii, fits)")
 
+    def reset_antecedent(self):
+
+        self._antecedent = None
+
+        return self
+
+    def reset_antecessor(self):
+
+        self._antecessor= None
+
+        return self
+
     def __repr__(self):
         """
         Return a nice printable format for the object. This format will indicate
