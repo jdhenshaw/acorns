@@ -1489,7 +1489,6 @@ def get_relaxed_cluster_criteria(relax, cluster_criteria_original_):
     # Get new clustering criteria
 
     if np.size(relax) == 1:
-        print(relax)
         cluster_criteria_relax_ = cluster_criteria_original_+(cluster_criteria_original_*relax)
         cluster_criteria_ = cluster_criteria_relax_
     else:
