@@ -69,7 +69,7 @@ plt.show()
 
 fig   = plt.figure(figsize=( 8.0, 8.0))
 ax = fig.add_subplot(111)
-ax.set_xlim([-1,35])
+ax.set_xlim([-1,40])
 ax.set_ylim([-0.1,3])
 ind = 0
 

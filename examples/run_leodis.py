@@ -32,13 +32,13 @@ dataarr_leodis = np.array([dataarr[0,:],dataarr[1,:],dataarr[2,:],dataarr[3,:], 
 pixel_size = 1.969
 min_radius = 3.332 # Ensures 9 pixels defines the smallest structure identified
 min_height = 3.0*np.mean(dataarr[6,:]) # Clusters have to be at least this value above the merge level
-velo_link = 0.07 # Velocity resolution of the data
+velo_link = 0.14 # Velocity resolution of the data
 dv_link = 0.28 # If you would also like to link using the LW as an additional criterion
 
 # Generate the cluster_criteria
 cluster_criteria = np.array([min_radius, velo_link, dv_link])
 # Relax criterias
-relax = np.array([0]) # for interactive set to 0.0 and set interactive = True when calling leodis
+relax = np.array([1.5,0.5,0.5]) # for interactive set to 0.0 and set interactive = True when calling leodis
 # Stopping criteria
 stop = 3.
 # number of cores used in finding nearest neighbouts. all = -1
