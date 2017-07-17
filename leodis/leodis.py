@@ -6,6 +6,8 @@ Copyright (c) 2017 Jonathan D. Henshaw
 CONTACT: j.d.henshaw@ljmu.ac.uk
 """
 
+from __future__ import print_function
+
 import numpy as np
 import itertools
 import sys
@@ -1487,7 +1489,7 @@ def get_relaxed_cluster_criteria(relax, cluster_criteria_original_):
     # Get new clustering criteria
 
     if np.size(relax) == 1:
-        print relax
+        print(relax)
         cluster_criteria_relax_ = cluster_criteria_original_+(cluster_criteria_original_*relax)
         cluster_criteria_ = cluster_criteria_relax_
     else:
@@ -1537,9 +1539,9 @@ def get_forest(self):
 
     _tree_idx = 0
     for antecessor in _antecessors:
-        #print antecessor
+        #print(antecessor)
         #check = check_components_test(self, antecessor, _antecessors)
-        #print check
+        #print(check)
         tree = Tree(antecessor, idx = _tree_idx, leodis=self)
         self.forest[_tree_idx] = tree
         _tree_idx += 1
