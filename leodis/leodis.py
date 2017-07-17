@@ -1420,7 +1420,7 @@ def get_current_index(self, index):
     array
     """
 
-    if self.method != 1:
+    if self.method == 1:
         current_idx = np.where((self.unassigned_data[0,:]==self.unassigned_data_relax[0,index]) & \
                                (self.unassigned_data[1,:]==self.unassigned_data_relax[1,index]) & \
                                (self.unassigned_data[2,:]==self.unassigned_data_relax[2,index]) & \
@@ -1487,7 +1487,8 @@ def get_relaxed_cluster_criteria(relax, cluster_criteria_original_):
     # Get new clustering criteria
 
     if np.size(relax) == 1:
-        cluster_criteria_relax_ = cluster_criteria_relax_+(cluster_criteria_relax_*relax)
+        print relax
+        cluster_criteria_relax_ = cluster_criteria_original_+(cluster_criteria_original_*relax)
         cluster_criteria_ = cluster_criteria_relax_
     else:
         cluster_criteria_relax_ = np.zeros(np.size(relax))

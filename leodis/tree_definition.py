@@ -242,14 +242,34 @@ def _sort_members(self):
                     new_clusters = [sibling]
                     while len(new_clusters) != 0:
                         cluster_list = []
-
                         for _cluster in new_clusters:
                             # Search upwards for descendants - if descendants
                             # are found - these will form the basis for new
                             # searches
                             if len(_cluster.descendants) != 0:
                                 for _descendant in _cluster.descendants:
-                                    cluster_list.append(_descendant)
+                                    if _descendant.descendants != 0:
+                                        _new_clusters = [_descendant]
+                                        _cluster_list = []
+
+                                        while len(_new_clusters) != 0:
+                                            for _cluster_ in _new_clusters:
+                                                _branches = []
+                                                if len(_cluster_.descendants) != 0:
+                                                    for _descendant_ in _cluster_.descendants:
+                                                        if len(_descendant_.descendants) != 0:
+                                                            _branches.append(_descendant_)
+                                                        else:
+                                                            _cluster_list.append(_descendant_)
+                                                else:
+                                                    _cluster_list.append(_cluster_)
+                                            _new_clusters = []
+                                            _new_clusters = _branches
+                                        cluster_list.append(_cluster_list)
+                                        _cluster_list = []
+                                    else:
+                                        cluster_list.append([_descendant])
+                                cluster_list = [item for sublist in cluster_list for item in sublist]
                             # If leaves are identified then add them to the
                             # sorted list
                             else:
