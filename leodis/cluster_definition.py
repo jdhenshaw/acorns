@@ -40,7 +40,7 @@ class Cluster(object):
         self._cluster_idx  = idx
 
         # cluster point locations
-        self._cluster_members = [data_point]
+        self.cluster_members = np.transpose([data_point])
         # cluster indices
         self._cluster_indices = [idx]
         # peak location
@@ -60,15 +60,6 @@ class Cluster(object):
         """
 
         return self._cluster_idx
-
-    @property
-    def cluster_members(self):
-        """
-        Returns all the members of a cluster.
-
-        """
-
-        return np.transpose(self._cluster_members)
 
     @property
     def cluster_indices(self):
@@ -120,7 +111,7 @@ class Cluster(object):
 
         """
 
-        return len(self._cluster_members)
+        return self.cluster_members.shape[1]
 
     @property
     def leaf_cluster(self):
@@ -320,7 +311,8 @@ def merge_clusters(self, merge_cluster, branching = False):
         merge_cluster._cluster_idx  = self._cluster_idx
 
     # Merge cluster into the linked cluster
-    self._cluster_members.extend(merge_cluster._cluster_members)
+    self.cluster_members = np.hstack(
+            [self.cluster_members, merge_cluster.cluster_members])
     self._cluster_indices.extend(merge_cluster._cluster_indices)
 
     # Update the cluster statistics
@@ -361,7 +353,8 @@ def merge_data(self, data):
         index = self._cluster_indices
 
     # Merge cluster into the linked cluster
-    self._cluster_members.append(data)
+    self.cluster_members = np.hstack(
+            [self.cluster_members, np.atleast_2d(data).T])
     self._cluster_indices.extend(index)
 
     # Update the cluster statistics
