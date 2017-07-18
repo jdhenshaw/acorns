@@ -223,6 +223,9 @@ def _sort_members(self):
         # Now descend
         while cluster.antecedent is not None:
             siblings = cluster.siblings
+            idx = [(sibling.leaf_cluster) for sibling in siblings]
+            sortedidxs = np.argsort(idx)[::-1]
+            siblings = list(np.array(siblings)[sortedidxs])
             for sibling in siblings:
                 # If the sibling is a leaf add it to the sorted list
                 if sibling.leaf_cluster:
@@ -236,49 +239,46 @@ def _sort_members(self):
                             for j in range(np.size(idx)):
                                 self._sorted_leaves.append(_sorted_peak_leaves[idx[j]])
                                 _sorted_peak_leaves.pop(idx[j])
+
                 # If however, the sibling is a branch we need to ascend that
                 # branch to get the order correct
                 else:
-                    new_clusters = [sibling]
-                    while len(new_clusters) != 0:
-                        cluster_list = []
-                        for _cluster in new_clusters:
-                            # Search upwards for descendants - if descendants
-                            # are found - these will form the basis for new
-                            # searches
-                            if len(_cluster.descendants) != 0:
-                                for _descendant in _cluster.descendants:
-                                    if _descendant.descendants != 0:
-                                        _new_clusters = [_descendant]
-                                        _cluster_list = []
+                    _branch_sibling = sibling
+                    _leaf_list = []
+                    _search_list = _branch_sibling.descendants
+                    idx = [(_descendant.leaf_cluster) for _descendant in _search_list]
+                    sortedidxs = np.argsort(idx)[::-1]
+                    _search_list = [list(np.array(_search_list)[sortedidxs])]
+                    num_descendants = len(_search_list)
 
-                                        while len(_new_clusters) != 0:
-                                            for _cluster_ in _new_clusters:
-                                                _branches = []
-                                                if len(_cluster_.descendants) != 0:
-                                                    for _descendant_ in _cluster_.descendants:
-                                                        if len(_descendant_.descendants) != 0:
-                                                            _branches.append(_descendant_)
-                                                        else:
-                                                            _cluster_list.append(_descendant_)
-                                                else:
-                                                    _cluster_list.append(_cluster_)
-                                            _new_clusters = []
-                                            _new_clusters = _branches
-                                        cluster_list.append(_cluster_list)
-                                        _cluster_list = []
-                                    else:
-                                        cluster_list.append([_descendant])
-                                cluster_list = [item for sublist in cluster_list for item in sublist]
-                            # If leaves are identified then add them to the
-                            # sorted list
-                            else:
-                                found_leaf = (np.asarray(_sorted_peak_leaves) == _cluster)
-                                if np.any(found_leaf):
-                                    idx = np.squeeze(np.where(found_leaf == True))
-                                    self._sorted_leaves.append(_sorted_peak_leaves[idx])
-                                    _sorted_peak_leaves.pop(idx)
-                        new_clusters = cluster_list
+                    branch_found = 1
+                    while branch_found != 0:
+                        branch_found = 0
+                        num_searches = np.shape(np.asarray(_search_list))[0]
+                        for i in range(num_searches):
+                            num_clusters = np.size(np.asarray(_search_list[i]))
+                            for j in range(num_clusters):
+                                if _search_list[i][j].branch_cluster == True:
+                                    _branch_descendants = _search_list[i][j].descendants
+                                    idx = [(_branch_descendant.leaf_cluster) for _branch_descendant in _branch_descendants]
+                                    sortedidxs = np.argsort(idx)[::-1]
+                                    _branch_descendants = list(np.array(_branch_descendants)[sortedidxs])
+                                    _search_list[i][j] = [descendant for descendant in _branch_descendants]
+                                    branch_found += 1
+                                else:
+                                    _search_list[i][j] = [_search_list[i][j]]
+                            _search_list[i] = [item for sublist in  _search_list[i] for item in sublist]
+                    _leaf_list = [item for sublist in  _search_list for item in sublist]
+
+                    if len(_leaf_list) != 0:
+                        for _cluster in _leaf_list:
+                            found_leaf = (np.asarray(_sorted_peak_leaves) == _cluster)
+                            if np.any(found_leaf):
+                                idx = np.squeeze(np.where(found_leaf == True))
+                                self._sorted_leaves.append(_sorted_peak_leaves[idx])
+                                _sorted_peak_leaves.pop(idx)
+
+
             cluster = cluster.antecedent
 
     return self

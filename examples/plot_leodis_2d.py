@@ -67,7 +67,7 @@ for tree in L.forest:
         ax.scatter(L.forest[tree].trunk.cluster_members[0,:], L.forest[tree].trunk.cluster_members[1,:], \
                    marker='o', s=10., c='None', edgecolors = c ,alpha=0.9, linewidth = 0.8)
         n = len(L.forest[tree].leaves)
-        col=iter(cm.rainbow(np.linspace(0,1,n)))
+        col=iter(cm.viridis(np.linspace(0,1,n)))
         for leaf in L.forest[tree].leaves:
             c=next(col)
             #pass
@@ -105,7 +105,7 @@ for tree in L.forest:
             ax.plot(L.forest[tree].cluster_vertices[0][j]+count, L.forest[tree].cluster_vertices[1][j], c=c)
             ax.plot(L.forest[tree].horizontals[0][j]+count, L.forest[tree].horizontals[1][j], c=c)
             num = len(L.forest[tree].leaves)
-            col=iter(cm.rainbow(np.linspace(0,1,num)))
+            col=iter(cm.viridis(np.linspace(0,1,num)))
             for i in range(len(L.forest[tree].tree_members)):
                 if len(L.forest[tree].tree_members[i].descendants) == 0:
                     cc=next(col)
