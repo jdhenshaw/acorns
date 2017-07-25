@@ -6,6 +6,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import colors
 import sys
 
+
 datadirectory =  './'
 datafilename =  datadirectory+'fits_final_pdbi.dat'
 

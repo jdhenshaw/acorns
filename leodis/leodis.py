@@ -301,7 +301,7 @@ class Leodis(object):
         self, cluster_list, cluster_indices = update_clusters(self)
         self = leodis_io.reshape_leodis_array(self)
         self.unassigned_array = self.data[:,np.squeeze(np.where(self.leodis_arr[2,:]==-1))]
-        self = get_forest(self)
+        self = get_forest(self, verbose)
 
         end = time.time()-start
 
@@ -534,14 +534,14 @@ def get_links(self, index, tree, n_jobs, re=False):
 
     sep = None
     if self.method <= 1:
-        idx = init_query(tree, np.array([coords[0,0:2]]), self.cluster_criteria[0], n_jobs)
+        idx = init_query(self, index, tree, np.array([coords[0,0:2]]), self.cluster_criteria[0], n_jobs, re=re)
         link = np.ones(len(idx), dtype=bool)
         if len(self.cluster_criteria) != 1:
             for i in range(len(self.cluster_criteria)-1):
                 link = further_query(link, coords[0,4+i], self.unassigned_data[4+i,idx], self.cluster_criteria[1+i])
         link = idx[np.where(np.array(link)==True)]
     else:
-        idx = init_query(tree, np.array([coords[0,0:3]]), self.cluster_criteria[0], n_jobs)
+        idx = init_query(self, index, tree, np.array([coords[0,0:3]]), self.cluster_criteria[0], n_jobs, re=re)
         link = np.ones(len(idx), dtype=bool)
         if len(self.cluster_criteria) != 1:
             for i in range(len(self.cluster_criteria)-1):
@@ -550,13 +550,19 @@ def get_links(self, index, tree, n_jobs, re=False):
 
     return link
 
-def init_query(tree, coords, r, n_jobs):
+def init_query(self, index, tree, coords, r, n_jobs, re=False):
     """
     Performs initial query of KD Tree
     """
     idx = tree.query_ball_point(coords, r, eps = 0, n_jobs = n_jobs)
+
+    if re == False:
+        idx_fullarray = index
+    else:
+        idx_fullarray = get_current_index(self, index)
+
     idx = np.array(idx[0])
-    idx = idx[np.where(idx != 0)]
+    idx = idx[np.where(idx != idx_fullarray)]
 
     return idx
 
@@ -1527,7 +1533,7 @@ def check_components_test(self, _cluster, _linked_clusters):
 
     return do_not_merge
 
-def get_forest(self):
+def get_forest(self, verbose):
 
     _antecessors = []
     for key, cluster in self.clusters.items():
@@ -1537,13 +1543,31 @@ def get_forest(self):
     _antecessors = sorted(_antecessors, key=get_cluster_idx, reverse=True)
 
     _tree_idx = 0
+
+
+    print('')
+    print('Generating forest...')
+    print('')
+    count= 0.0
+    if verbose:
+        progress_bar = progress_bar = AnimatedProgressBar(end=len(_antecessors), width=50, \
+                                           fill='=', blank='.')
     for antecessor in _antecessors:
         #print(antecessor)
         #check = check_components_test(self, antecessor, _antecessors)
         #print(check)
+        if verbose and (count % 1 == 0):
+            progress_bar + 1
+            progress_bar.show_progress()
         tree = Tree(antecessor, idx = _tree_idx, leodis=self)
         self.forest[_tree_idx] = tree
         _tree_idx += 1
+
+    if verbose:
+        progress_bar.progress = 100  # Done
+        progress_bar.show_progress()
+        print('')
+        print('')
 
     return self
 
