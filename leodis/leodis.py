@@ -1544,8 +1544,6 @@ def get_forest(self, verbose):
 
     _tree_idx = 0
 
-
-    print('')
     print('Generating forest...')
     print('')
     count= 0.0
