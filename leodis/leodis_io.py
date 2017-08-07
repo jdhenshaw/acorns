@@ -12,30 +12,31 @@ import pickle
 from astropy.io import fits
 from astropy.table import Table
 from astropy.table import Column
+sys.setrecursionlimit(20000)
 
-def reshape_leodis_array(self):
+def reshape_leodis_array(self, data):
     """
     Reshape the leodis array so that it has the same dimensions as the input
     data array (rather than the unassigned array)
     """
 
-    _leodis_arr = -1*np.ones([3, len(self.data[0,:])])
-    for j in range(len(self.data[0,:])):
-        idx = np.squeeze(np.where((self.leodis_arr[0,:] == self.data[0,j]) & \
-                                  (self.leodis_arr[1,:] == self.data[1,j]) & \
-                                  (self.leodis_arr[3,:] == self.data[2,j]) & \
-                                  (self.leodis_arr[4,:] == self.data[3,j])))
+    _leodis_arr = -1*np.ones([3, len(data[0,:])])
+    for j in range(len(data[0,:])):
+        idx = np.squeeze(np.where((self.leodis_arr[0,:] == data[0,j]) & \
+                                  (self.leodis_arr[1,:] == data[1,j]) & \
+                                  (self.leodis_arr[3,:] == data[2,j]) & \
+                                  (self.leodis_arr[4,:] == data[3,j])))
 
         if np.size(idx) == 0:
-            _leodis_arr[0:2,j] = self.data[0:2,j]
+            _leodis_arr[0:2,j] = data[0:2,j]
             _leodis_arr[2, j] = -1
 
         if np.size(idx) == 1:
-            _leodis_arr[0:2,j] = self.data[0:2,j]
+            _leodis_arr[0:2,j] = data[0:2,j]
             _leodis_arr[2, j] = self.leodis_arr[2,idx]
 
         if np.size(idx) == 2:
-            _leodis_arr[0:2,j] = self.data[0:2,j]
+            _leodis_arr[0:2,j] = data[0:2,j]
             _leodis_arr[2, j] = self.leodis_arr[2,idx[0]]
 
     self.leodis_arr = None
@@ -157,9 +158,8 @@ def housekeeping(self):
     """
     Tidy up the output leodis file
     """
-
+    del self.clusters
     del self.cluster_criteria
-    del self.data
     del self.link
     del self.max_dist
     del self.method

@@ -6,6 +6,8 @@ Copyright (c) 2017 Jonathan D. Henshaw
 CONTACT: j.d.henshaw@ljmu.ac.uk
 """
 
+import matplotlib
+#matplotlib.use('TkAgg')
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
@@ -44,6 +46,7 @@ def plot_scatter(self):
                 ax.scatter(ant.cluster_members[0,:], ant.cluster_members[1,:], \
                            marker='o', s=10., c='None', edgecolors = c ,alpha=0.9, depthshade=False, linewidth = 0.8)
 
+        plt.draw()
         plt.show()
 
     if self.method == 1:
@@ -74,6 +77,7 @@ def plot_scatter(self):
                 ax.scatter(ant.cluster_members[0,:], ant.cluster_members[1,:], ant.cluster_members[4,:], \
                            marker='o', s=10., c='None', edgecolors = c ,alpha=0.9, depthshade=False, linewidth = 0.8)
 
+        plt.draw()
         plt.show()
 
     if self.method==2:
@@ -104,4 +108,5 @@ def plot_scatter(self):
                 ax.scatter(ant.cluster_members[0,:], ant.cluster_members[1,:], ant.cluster_members[2,:], \
                            marker='o', s=10., c='None', edgecolors = c ,alpha=0.9, depthshade=False, linewidth = 0.8)
 
+        plt.draw()
         plt.show()

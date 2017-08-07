@@ -42,7 +42,6 @@ class Leodis(object):
         self.leodis_arr = None
         self.clusters = None
         self.forest = None
-        self.data = None
         self.cluster_idx = None
         self.method = None
         self.relax = None
@@ -115,8 +114,8 @@ class Leodis(object):
 
         self = Leodis()
         start = time.time()
+
         # User input information
-        self.data = data
         self.cluster_criteria = cluster_criteria
 
         if np.size(relax) == 1:
@@ -143,7 +142,7 @@ class Leodis(object):
 
         # Prime the leodis information:
         # leodis_arr will be updated with the indices of new clusters
-        self.leodis_arr = gen_leodis_arr(self, stop)
+        self.leodis_arr = gen_leodis_arr(self, data, stop)
         self.clusters = {}
         self.forest = {}
 
@@ -152,20 +151,17 @@ class Leodis(object):
         Main controlling routine for leodis
         """
 
-        self = find_unassigned_data(self, stop)
+        self = find_unassigned_data(self, data, stop)
 
-        if self.method==2:
-            coordinates = self.unassigned_data[0:3,:]
-        else:
-            coordinates = self.unassigned_data[0:2,:]
-        tree = cKDTree(np.transpose(coordinates))
+        # Gen KDTree
+        tree = generate_kdtree(self)
 
         # Generate the unassigned data array
         unassigned_array_length = len(self.unassigned_data[0,:])
 
         count= 0.0
         if verbose:
-            progress_bar = print_to_terminal(self, count, \
+            progress_bar = print_to_terminal(self, data, count, \
                                              unassigned_array_length, method)
 
         # Cycle through the unassigned array
@@ -254,7 +250,7 @@ class Leodis(object):
 
         # Take a second pass at the data without relaxing the linking criteria
         # to pick up any remaining stragglers not linked during the first pass
-        self, cluster_list, cluster_indices = relax_steps(self, method, verbose, tree, n_jobs, second_pass=True)
+        self, cluster_list, cluster_indices = relax_steps(self, data, method, verbose, tree, n_jobs, second_pass=True)
         endhierarchy = time.time()-starthierarchy
 
 #==============================================================================#
@@ -268,7 +264,7 @@ class Leodis(object):
             startrelax = time.time()
             cluster_criteria_original = cluster_criteria
             self.cluster_criteria = get_relaxed_cluster_criteria(self.relax, cluster_criteria_original)
-            self, cluster_list, cluster_indices = relax_steps(self, method, verbose, tree, n_jobs, second_pass=False)
+            self, cluster_list, cluster_indices = relax_steps(self, data, method, verbose, tree, n_jobs, second_pass=False)
             endrelax = time.time()-startrelax
 
         elif (interactive==True):
@@ -281,7 +277,7 @@ class Leodis(object):
                 self.relax = np.array(eval(input("Please enter relax values in list format: ")))
                 print('')
                 self.cluster_criteria = get_relaxed_cluster_criteria(self.relax, cluster_criteria_original)
-                self, cluster_list, cluster_indices = relax_steps(self, method, verbose, tree, n_jobs, second_pass=False)
+                self, cluster_list, cluster_indices = relax_steps(self, data, method, verbose, tree, n_jobs, second_pass=False)
                 leodis_plots.plot_scatter(self)
                 s = str(input("Would you like to continue? "))
                 print('')
@@ -291,16 +287,14 @@ class Leodis(object):
         else:
             pass
 
-        self, cluster_list, cluster_indices = update_clusters(self)
-
 #==============================================================================#
         """
         Tidy everything up for output
 
         """
         self, cluster_list, cluster_indices = update_clusters(self)
-        self = leodis_io.reshape_leodis_array(self)
-        self.unassigned_array = self.data[:,np.squeeze(np.where(self.leodis_arr[2,:]==-1))]
+        self = leodis_io.reshape_leodis_array(self, data)
+        self.unassigned_array = data[:,np.squeeze(np.where(self.leodis_arr[2,:]==-1))]
         self = get_forest(self, verbose)
 
         end = time.time()-start
@@ -341,7 +335,7 @@ class Leodis(object):
 # Methods
 #==============================================================================#
 
-def relax_method(self, method, verbose, tree, n_jobs, second_pass = False):
+def relax_method(self, data, method, verbose, tree, n_jobs, second_pass = False):
     """
 
     Notes
@@ -358,17 +352,17 @@ def relax_method(self, method, verbose, tree, n_jobs, second_pass = False):
 
     count=0.0
     if verbose and second_pass:
-        progress_bar = print_to_terminal(self, count, \
+        progress_bar = print_to_terminal(self, data, count, \
                                          unassigned_array_length,\
                                          method, re=False, second_pass=second_pass)
     else:
-        progress_bar = print_to_terminal(self, count, \
+        progress_bar = print_to_terminal(self, data, count, \
                                          unassigned_array_length,\
                                          method, re=True, second_pass=second_pass)
 
     # Now run the linking again with the relaxed constraints
     for i in range(0, unassigned_array_length):
-
+        
         if verbose and (count % 1 == 0):
             progress_bar + 1
             progress_bar.show_progress()
@@ -403,14 +397,14 @@ def relax_method(self, method, verbose, tree, n_jobs, second_pass = False):
 
     return self
 
-def relax_steps(self, method, verbose, tree, n_jobs, second_pass = False, plot=False):
+def relax_steps(self, data, method, verbose, tree, n_jobs, second_pass = False, plot=False):
     """
     Main steps taken when the linking criteria are relaxed
 
     """
 
     self.unassigned_data_relax = self.unassigned_data_updated
-    self = relax_method(self, method, verbose, tree, n_jobs, second_pass=second_pass)
+    self = relax_method(self, data, method, verbose, tree, n_jobs, second_pass=second_pass)
     self, cluster_list, cluster_indices = update_clusters(self)
     self.unassigned_data_relax = self.unassigned_data_updated
 
@@ -476,35 +470,47 @@ def round_to_1(val):
     """
     return round(val, -int(floor(log10(abs(val)))))
 
-def gen_leodis_arr(self, stop):
+def gen_leodis_arr(self, data, stop):
     """
     Returns the empty leodis array
 
     """
 
-    keep = ((self.data[2,:] > stop*self.data[3,:]))
-    leodis_arr = -np.ones((5,len(self.data[0,:])))
+    keep = ((data[2,:] > stop*data[3,:]))
+    leodis_arr = -np.ones((5,len(data[0,:])))
     leodis_arr = leodis_arr[:,keep]
-    leodis_arr[0,:] = self.data[0, keep]
-    leodis_arr[1,:] = self.data[1, keep]
-    leodis_arr[3,:] = self.data[2, keep]
-    leodis_arr[4,:] = self.data[3, keep]
+    leodis_arr[0,:] = data[0, keep]
+    leodis_arr[1,:] = data[1, keep]
+    leodis_arr[3,:] = data[2, keep]
+    leodis_arr[4,:] = data[3, keep]
 
     return leodis_arr
 
-def find_unassigned_data(self, stop):
+def find_unassigned_data(self, data, stop):
     """
     Return the unassigned_data
 
     """
 
-    keep = ((self.data[2,:] > stop*self.data[3,:]))
-    self.unassigned_data = self.data[:,keep]
+    keep = ((data[2,:] > stop*data[3,:]))
+    self.unassigned_data = data[:,keep]
     sortidx = np.argsort(self.unassigned_data[2,:])[::-1]
     self.unassigned_data = self.unassigned_data[:,sortidx]
     self.leodis_arr = self.leodis_arr[:,sortidx]
 
     return self
+
+def generate_kdtree(self):
+    """
+    Generates a KDTree to be queried for nearest neighbour searches
+    """
+    if self.method==2:
+        coordinates = self.unassigned_data[0:3,:]
+    else:
+        coordinates = self.unassigned_data[0:2,:]
+    tree = cKDTree(np.transpose(coordinates))
+
+    return tree
 
 def get_links(self, index, tree, n_jobs, re=False):
     """
@@ -735,6 +741,7 @@ def find_linked_clusters_single_antecessor(self, cluster, linked_clusters):
                 linked_clusters = [linked_clusters[idx[0]]]
     else:
         linked_clusters = []
+    slot=[]
 
     return linked_clusters
 
@@ -778,7 +785,7 @@ def gen_clustlst(number_of_antecessors, linked_clusters, antecessors):
             if linked_clusters[k].antecessor == antecessors[j]:
                 lst.append(linked_clusters[k])
         clustlst.append(lst)
-
+    lst = None
     return clustlst
 
 def bud_check(self, cluster, linked_clusters):
@@ -935,6 +942,7 @@ def check_components(self, _cluster, _linked_clusters):
         else:
             do_not_merge.append(False)
 
+        boolval = None
     return do_not_merge
 
 def multi_component_check(self, cluster, linked_clusters, re = False):
@@ -1580,7 +1588,7 @@ def num_links(self):
             count+=numberofmembers
     return count
 
-def print_to_terminal(self, count, unassigned_array_length, method, re=False, second_pass=False):
+def print_to_terminal(self, data, count, unassigned_array_length, method, re=False, second_pass=False):
     """
     Prints some information to the terminal if verbose == True
     """
@@ -1590,7 +1598,7 @@ def print_to_terminal(self, count, unassigned_array_length, method, re=False, se
         print('')
         print('Beginning analysis...')
         print('')
-        print("leodis will look for clusters within {}% of the data: ".format((100 * unassigned_array_length / self.data[0,:].size)))
+        print("leodis will look for clusters within {}% of the data: ".format((100 * unassigned_array_length / data[0,:].size)))
         print('')
         print("Method = {}".format(method))
         print("Max. Euclidean distance between linked data = {}".format(np.around(self.max_dist, decimals = 2)))
@@ -1602,20 +1610,20 @@ def print_to_terminal(self, count, unassigned_array_length, method, re=False, se
             if len(self.cluster_criteria) != 1:
                 print('')
                 print("Additional criteria: ")
-                for j in range(4, len(self.data[:,0])):
+                for j in range(4, len(data[:,0])):
                     print("Max. absolute difference between column {} data = {}".format(j, np.around(self.cluster_criteria[j-3], decimals = 2)))
         if self.method == 1:
             print("Max. absolute velocity difference between linked data = {}".format(np.around(self.cluster_criteria[1], decimals = 2)))
             print('')
             if len(self.cluster_criteria) > 2:
                 print("Additional criteria: ")
-                for j in range(5, len(self.data[:,0])):
+                for j in range(5, len(data[:,0])):
                     print("Max. absolute difference between column {} data = {}".format(j, np.around(self.cluster_criteria[j-3], decimals = 2)))
         if self.method == 2:
             if len(self.cluster_criteria) != 1:
                 print('')
                 print("Additional criteria: ")
-                for j in range(4, len(self.data[:,0])):
+                for j in range(4, len(data[:,0])):
                     print("Max. absolute difference between column {} data = {}".format(j, np.around(self.cluster_criteria[j-3], decimals = 2)))
 
         print('Primary clustering...')

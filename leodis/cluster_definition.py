@@ -42,7 +42,7 @@ class Cluster(object):
         # cluster point locations
         self.cluster_members = np.transpose([data_point])
         # cluster indices
-        self._cluster_indices = [idx]
+        self.cluster_indices = np.array([idx])
         # peak location
         self._peak_location = np.array([data_point[0],data_point[1]])
         # Set up a dictionary of important information. See statistics below
@@ -60,15 +60,6 @@ class Cluster(object):
         """
 
         return self._cluster_idx
-
-    @property
-    def cluster_indices(self):
-        """
-        Returns the indices of the cluster members
-
-        """
-
-        return self._cluster_indices
 
     @property
     def merge_level(self):
@@ -299,6 +290,8 @@ def _set_merge_level(self, descendants):
     for descendant in descendants:
         descendant._merge_level = np.min(np.asarray(mergevals))
 
+    mergevals = None
+
     return self._merge_level
 
 def merge_clusters(self, merge_cluster, branching = False):
@@ -313,7 +306,8 @@ def merge_clusters(self, merge_cluster, branching = False):
     # Merge cluster into the linked cluster
     self.cluster_members = np.hstack(
             [self.cluster_members, merge_cluster.cluster_members])
-    self._cluster_indices.extend(merge_cluster._cluster_indices)
+    self.cluster_indices = np.hstack([self.cluster_indices, \
+                                      merge_cluster.cluster_indices])
 
     # Update the cluster statistics
     self._statistics[0] = [np.min(self.cluster_members[2,:]), \
@@ -347,15 +341,15 @@ def merge_data(self, data):
 
     """
 
-    if np.size(self._cluster_indices) > 1.0:
-        index = [self._cluster_indices[0]]
+    if np.size(self.cluster_indices) > 1.0:
+        index = self.cluster_indices[0]
     else:
-        index = self._cluster_indices
+        index = self.cluster_indices
 
     # Merge cluster into the linked cluster
     self.cluster_members = np.hstack(
             [self.cluster_members, np.atleast_2d(data).T])
-    self._cluster_indices.extend(index)
+    self.cluster_indices = np.hstack([self.cluster_indices, index])
 
     # Update the cluster statistics
     self._statistics[0] = [np.min(self.cluster_members[2,:]), \
@@ -373,7 +367,6 @@ def merge_data(self, data):
                                  np.std(self.cluster_members[j,:])]
 
     # Update the peak location
-
     peak_idx = np.squeeze(np.where(self.cluster_members[2,:] == np.max(self.cluster_members[2,:])))
     if np.size(np.squeeze(peak_idx)) != 1:
         peak_idx = peak_idx[0]
