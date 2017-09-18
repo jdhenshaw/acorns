@@ -158,16 +158,15 @@ def housekeeping(self):
     """
     Tidy up the output leodis file
     """
-    del self.clusters
+    
     del self.cluster_criteria
-    del self.link
     del self.max_dist
     del self.method
     del self.min_height
     del self.min_sep
     del self.minnpix_cluster
     del self.relax
+    del self.unassigned_data_updated
     del self.unassigned_data
-    del self.unassigned_data_relax
 
     return self

@@ -22,6 +22,7 @@ from .cluster_definition import merge_clusters
 from .cluster_definition import merge_data
 from .cluster_definition import form_a_branch
 from .tree_definition import Tree
+from .leodis_io import housekeeping
 from math import log10, floor
 
 # add Python 2 xrange compatibility, to be removed
@@ -48,7 +49,6 @@ class Leodis(object):
         self.unassigned_data = None
         self.unassigned_data_updated = None
         self.unassigned_data_relax = None
-        self.unassigned_array = None
         self.cluster_criteria = None
 
     @staticmethod
@@ -296,7 +296,6 @@ class Leodis(object):
         """
         self, cluster_list, cluster_indices = update_clusters(self, data)
         self = leodis_io.reshape_leodis_array(self, data)
-        self.unassigned_array = data[:,np.squeeze(np.where(self.leodis_arr[2,:]==-1))]
         self = get_forest(self, verbose)
 
         end = time.time()-start
@@ -313,7 +312,11 @@ class Leodis(object):
             print('A total of {0} data points were assigned to clusters.'.format(num_links(self)))
             print('A total of {0} data points remain unassigned to clusters.'.format(len(self.unassigned_data_relax[0,:])))
             print('')
+
+        self = housekeeping(self)
         return self
+
+
 
 #==============================================================================#
 
