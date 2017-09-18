@@ -57,9 +57,9 @@ def load_leodis(filename):
     leodis = pickle.load( open(filename, "rb"))
     return leodis
 
-def output_ascii(self, outputfile, extended=None, leodis_cols=None, headings=None):
+def output_ascii(self, data, outputfile, extended=None, leodis_cols=None, headings=None):
     OF = open(outputfile,'w')
-    _members = self.cluster_members
+    _members = data[:,self.cluster_members]
 
     if extended is None:
         form = gen_format(_members)
@@ -79,11 +79,11 @@ def output_ascii(self, outputfile, extended=None, leodis_cols=None, headings=Non
 
     return
 
-def output_fits(self, outputfile, extended=None, leodis_cols=None, headings=None):
+def output_fits(self, data, outputfile, extended=None, leodis_cols=None, headings=None):
     """
     Outputs an astropy table containing the information for each cluster.
     """
-    table = make_table(self, extended=extended, leodis_cols=leodis_cols, headings=headings )
+    table = make_table(self, data, extended=extended, leodis_cols=leodis_cols, headings=headings )
     table.write(outputfile, format='fits', overwrite=True)
     #print(table)
     #print("")
@@ -120,12 +120,12 @@ def get_members_extended(clustermembers, extended, leodis_cols):
 
     return clustermembersextended
 
-def make_table(self, extended=None, leodis_cols=None, headings=None):
+def make_table(self, data, extended=None, leodis_cols=None, headings=None):
     """
     Generates an astropy table to hold the information
     """
 
-    _members = self.cluster_members
+    _members = data[:,self.cluster_members]
     table = Table(meta={'name': self.cluster_idx})
 
     if extended is None:

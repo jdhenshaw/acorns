@@ -40,9 +40,7 @@ ax = fig.add_subplot(111)
 ax.set_xlabel('X')
 ax.set_ylabel('Y')
 
-keep = (dataarr_leodis[2,:] >= 0.0)
-datanew = dataarr_leodis[:,keep]
-ax.scatter(datanew[0,:], datanew[1,:], marker='o', s=2., c='black',linewidth=0., alpha=0.2)
+ax.scatter(dataarr_leodis[0,:], dataarr_leodis[1,:], marker='o', s=2., c='black',linewidth=0., alpha=0.2)
 
 # Generate a new colour for each trunk
 n = len(L.forest)
@@ -55,23 +53,23 @@ for tree in L.forest:
     if L.forest[tree].trunk.leaf_cluster:
         #pass
         #c=next(colour)
-        ax.scatter(L.forest[tree].trunk.cluster_members[0,:], L.forest[tree].trunk.cluster_members[1,:], \
+        ax.scatter(dataarr_leodis[0, L.forest[tree].trunk.cluster_members], dataarr_leodis[1,L.forest[tree].trunk.cluster_members], \
                    marker='o', s=3., c='black',linewidth=0, alpha=0.7)
-        ax.scatter(L.forest[tree].trunk.cluster_members[0,:], L.forest[tree].trunk.cluster_members[1,:], \
+        ax.scatter(dataarr_leodis[0, L.forest[tree].trunk.cluster_members], dataarr_leodis[1,L.forest[tree].trunk.cluster_members], \
                    marker='o', s=10., c='None', edgecolors = c ,alpha=0.9, linewidth = 0.8)
     else:
         #c=next(colour)
         #pass
-        ax.scatter(L.forest[tree].trunk.cluster_members[0,:], L.forest[tree].trunk.cluster_members[1,:], \
+        ax.scatter(dataarr_leodis[0, L.forest[tree].trunk.cluster_members], dataarr_leodis[1,L.forest[tree].trunk.cluster_members], \
                    marker='o', s=3., c='black',linewidth=0, alpha=0.7)
-        ax.scatter(L.forest[tree].trunk.cluster_members[0,:], L.forest[tree].trunk.cluster_members[1,:], \
+        ax.scatter(dataarr_leodis[0, L.forest[tree].trunk.cluster_members], dataarr_leodis[1,L.forest[tree].trunk.cluster_members], \
                    marker='o', s=10., c='None', edgecolors = c ,alpha=0.9, linewidth = 0.8)
         n = len(L.forest[tree].leaves)
         col=iter(cm.viridis(np.linspace(0,1,n)))
         for leaf in L.forest[tree].leaves:
             c=next(col)
             #pass
-            ax.scatter(leaf.cluster_members[0,:], leaf.cluster_members[1,:], \
+            ax.scatter(dataarr_leodis[0,leaf.cluster_members], dataarr_leodis[1,leaf.cluster_members], \
                        marker='o', s=10., c=c, edgecolors = 'k',alpha=1.0, linewidth = 0.1)
 
 ax.azim = 180
