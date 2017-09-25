@@ -42,7 +42,7 @@ relax = np.array([1.5,0.5,0.5]) # for interactive set to 0.0 and set interactive
 # Stopping criteria
 stop = 3.
 # number of cores used in finding nearest neighbouts. all = -1
-n_jobs = -1
+n_jobs = 1
 verbose = True
 interactive = False
 

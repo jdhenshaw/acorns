@@ -306,9 +306,9 @@ def merge_clusters(self, merge_cluster, data, branching = False):
         merge_cluster._cluster_idx  = self._cluster_idx
 
     # Merge cluster into the linked cluster
-    self.cluster_members = np.hstack(
+    self.cluster_members = np.concatenate(
             [self.cluster_members, merge_cluster.cluster_members])
-    self.cluster_indices = np.hstack([self.cluster_indices, \
+    self.cluster_indices = np.concatenate([self.cluster_indices, \
                                       merge_cluster.cluster_indices])
 
     cluster_data = data[:, self.cluster_members]
@@ -328,30 +328,21 @@ def merge_clusters(self, merge_cluster, data, branching = False):
                                  np.median(cluster_data[j,:]),\
                                  np.std(cluster_data[j,:])]
     # Update the peak location
-    peak_idx = np.squeeze(np.where(cluster_data[2,:] == np.max(cluster_data[2,:])))
-    if np.size(np.squeeze(peak_idx)) != 1:
-        peak_idx = peak_idx[0]
-        self._peak_location = np.array([cluster_data[0,peak_idx], cluster_data[1,peak_idx]])
-    else:
-        self._peak_location = np.array([cluster_data[0,peak_idx], cluster_data[1,peak_idx]])
+    peak_idx = np.argmax(cluster_data[2,:])
+    self._peak_location = np.array([cluster_data[0,peak_idx], cluster_data[1,peak_idx]])
 
     return self
 
 #def merge_data(self, data_cluster, data_idx, data):
-def merge_data(self, data_idx, data):
+def merge_data(self, data_idx, un_idx, data):
     """
     Add data points to a cluster and update cluster properties
 
     """
-
-    if np.size(self.cluster_indices) > 1.0:
-        index = self.cluster_indices[0]
-    else:
-        index = self.cluster_indices
-
-    self.cluster_members = np.hstack(
-            [self.cluster_members, data_idx])
-    self.cluster_indices = np.hstack([self.cluster_indices, index])
+    
+    self.cluster_members = np.concatenate(
+            [self.cluster_members, np.array([data_idx])])
+    self.cluster_indices = np.concatenate([self.cluster_indices, np.array([un_idx])])
 
     cluster_data = data[:, self.cluster_members]
 
@@ -369,14 +360,10 @@ def merge_data(self, data_idx, data):
                                  np.mean(cluster_data[j,:]),\
                                  np.median(cluster_data[j,:]),\
                                  np.std(cluster_data[j,:])]
-    # Update the peak location
 
-    peak_idx = np.squeeze(np.where(cluster_data[2,:] == np.max(cluster_data[2,:])))
-    if np.size(np.squeeze(peak_idx)) != 1:
-        peak_idx = peak_idx[0]
-        self._peak_location = np.array([cluster_data[0,peak_idx], cluster_data[1,peak_idx]])
-    else:
-        self._peak_location = np.array([cluster_data[0,peak_idx], cluster_data[1,peak_idx]])
+    # Update the peak location
+    peak_idx = np.argmax(cluster_data[2,:])
+    self._peak_location = np.array([cluster_data[0,peak_idx], cluster_data[1,peak_idx]])
 
     return self
 
