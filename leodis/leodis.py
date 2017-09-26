@@ -253,7 +253,9 @@ class Leodis(object):
 
         # Take a second pass at the data without relaxing the linking criteria
         # to pick up any remaining stragglers not linked during the first pass
-        self, cluster_list, cluster_indices = relax_steps(self, data, method, verbose, tree, n_jobs, second_pass=True)
+
+        if (self.unassigned_data_updated != None):
+            self, cluster_list, cluster_indices = relax_steps(self, data, method, verbose, tree, n_jobs, second_pass=True)
         endhierarchy = time.time()-starthierarchy
 
 #==============================================================================#
@@ -263,14 +265,14 @@ class Leodis(object):
 
         """
 
-        if (relaxcond==True) and (interactive==False):
+        if (relaxcond==True) and (interactive==False) and (self.unassigned_data_updated != None):
             startrelax = time.time()
             cluster_criteria_original = cluster_criteria
             self.cluster_criteria = get_relaxed_cluster_criteria(self.relax, cluster_criteria_original)
             self, cluster_list, cluster_indices = relax_steps(self, data, method, verbose, tree, n_jobs, second_pass=False)
             endrelax = time.time()-startrelax
 
-        elif (interactive==True):
+        elif (interactive==True) and (self.unassigned_data_updated != None):
             startrelax = time.time()
             cluster_criteria_original = cluster_criteria
             leodis_plots.plot_scatter(self)
@@ -288,7 +290,8 @@ class Leodis(object):
             endrelax = time.time()-startrelax
 
         else:
-            pass
+            startrelax = time.time()
+            endrelax = time.time()-startrelax
 
 #==============================================================================#
         """
@@ -311,7 +314,10 @@ class Leodis(object):
             print('')
             print('A total of {0} data points were used in the search.'.format(len(self.unassigned_data[0,:])))
             print('A total of {0} data points were assigned to clusters.'.format(num_links(self)))
-            print('A total of {0} data points remain unassigned to clusters.'.format(len(self.unassigned_data_relax[0,:])))
+            if (self.unassigned_data_relax != None):
+                print('A total of {0} data points remain unassigned to clusters.'.format(len(self.unassigned_data_relax[0,:])))
+            else:
+                print('A total of 0 data points remain unassigned to clusters.')
             print('')
 
         self = housekeeping(self)
