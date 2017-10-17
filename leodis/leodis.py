@@ -151,7 +151,7 @@ class Leodis(object):
         Main controlling routine for leodis
         """
 
-        self = find_unassigned_data(self, data, stop)
+        find_unassigned_data(self, data, stop)
 
         # Gen KDTree
         tree = generate_kdtree(self)
@@ -235,11 +235,11 @@ class Leodis(object):
             """
 
             if not linked_clusters:
-                self = add_to_cluster_dictionary(self, bud_cluster)
+                add_to_cluster_dictionary(self, bud_cluster)
             elif len(linked_clusters) == 1:
-                self = merge_into_cluster(self, data, linked_clusters[0], bud_cluster)
+                merge_into_cluster(self, data, linked_clusters[0], bud_cluster)
             else:
-                self = resolve_ambiguity(self, data, linked_clusters, bud_cluster)
+                resolve_ambiguity(self, data, linked_clusters, bud_cluster)
 
         if verbose:
             progress_bar.progress = 100
@@ -249,13 +249,13 @@ class Leodis(object):
 
         # Remove insignificant clusters from the clusters dictionary and update
         # the unassigned array
-        self, cluster_list, cluster_indices = update_clusters(self, data)
+        cluster_list, cluster_indices = update_clusters(self, data)
 
         # Take a second pass at the data without relaxing the linking criteria
         # to pick up any remaining stragglers not linked during the first pass
 
-        if (self.unassigned_data_updated != None):
-            self, cluster_list, cluster_indices = relax_steps(self, data, method, verbose, tree, n_jobs, second_pass=True)
+        if (np.size(self.unassigned_data_updated)>1):
+            cluster_list, cluster_indices = relax_steps(self, data, method, verbose, tree, n_jobs, second_pass=True)
         endhierarchy = time.time()-starthierarchy
 
 #==============================================================================#
@@ -265,25 +265,25 @@ class Leodis(object):
 
         """
 
-        if (relaxcond==True) and (interactive==False) and (self.unassigned_data_updated != None):
+        if relaxcond and not interactive and (np.size(self.unassigned_data_updated)>1):
             startrelax = time.time()
             cluster_criteria_original = cluster_criteria
             self.cluster_criteria = get_relaxed_cluster_criteria(self.relax, cluster_criteria_original)
-            self, cluster_list, cluster_indices = relax_steps(self, data, method, verbose, tree, n_jobs, second_pass=False)
+            cluster_list, cluster_indices = relax_steps(self, data, method, verbose, tree, n_jobs, second_pass=False)
             endrelax = time.time()-startrelax
 
-        elif (interactive==True) and (self.unassigned_data_updated != None):
+        elif interactive and (np.size(self.unassigned_data_updated)>1):
             startrelax = time.time()
             cluster_criteria_original = cluster_criteria
-            leodis_plots.plot_scatter(self)
+            #leodis_plots.plot_scatter(self)
             stop = True
             while stop != False:
                 # Relax
                 self.relax = np.array(eval(input("Please enter relax values in list format: ")))
                 print('')
                 self.cluster_criteria = get_relaxed_cluster_criteria(self.relax, cluster_criteria_original)
-                self, cluster_list, cluster_indices = relax_steps(self, data, method, verbose, tree, n_jobs, second_pass=False)
-                leodis_plots.plot_scatter(self)
+                cluster_list, cluster_indices = relax_steps(self, data, method, verbose, tree, n_jobs, second_pass=False)
+                #leodis_plots.plot_scatter(self)
                 s = str(input("Would you like to continue? "))
                 print('')
                 stop = s in ['True', 'T', 'true', '1', 't', 'y', 'yes', 'Y', 'Yes']
@@ -298,9 +298,10 @@ class Leodis(object):
         Tidy everything up for output
 
         """
-        self, cluster_list, cluster_indices = update_clusters(self, data)
-        self = leodis_io.reshape_leodis_array(self, data)
-        self = get_forest(self, verbose)
+
+        cluster_list, cluster_indices = update_clusters(self, data)
+        leodis_io.reshape_leodis_array(self, data)
+        get_forest(self, verbose)
 
         end = time.time()-start
 
@@ -314,13 +315,14 @@ class Leodis(object):
             print('')
             print('A total of {0} data points were used in the search.'.format(len(self.unassigned_data[0,:])))
             print('A total of {0} data points were assigned to clusters.'.format(num_links(self)))
-            if (self.unassigned_data_relax != None):
+            if (np.size(self.unassigned_data_relax)>1):
                 print('A total of {0} data points remain unassigned to clusters.'.format(len(self.unassigned_data_relax[0,:])))
             else:
                 print('A total of 0 data points remain unassigned to clusters.')
             print('')
 
-        self = housekeeping(self)
+        housekeeping(self)
+
         return self
 
 #==============================================================================#
@@ -395,11 +397,11 @@ def relax_method(self, data, method, verbose, tree, n_jobs, second_pass = False)
         linked_clusters = find_linked_clusters(self, data, i, bud_cluster, link, re = True)
 
         if not linked_clusters:
-            self = add_to_cluster_dictionary(self, bud_cluster)
+            add_to_cluster_dictionary(self, bud_cluster)
         elif len(linked_clusters) == 1:
-            self = merge_into_cluster(self, data, linked_clusters[0], bud_cluster, re = True)
+            merge_into_cluster(self, data, linked_clusters[0], bud_cluster, re = True)
         else:
-            self = resolve_ambiguity(self, data, linked_clusters, bud_cluster, re = True)
+            resolve_ambiguity(self, data, linked_clusters, bud_cluster, re = True)
 
     if verbose:
         progress_bar.progress = 100  # Done
@@ -407,7 +409,7 @@ def relax_method(self, data, method, verbose, tree, n_jobs, second_pass = False)
         print('')
         print('')
 
-    return self
+    return
 
 def relax_steps(self, data, method, verbose, tree, n_jobs, second_pass = False, plot=False):
     """
@@ -416,11 +418,11 @@ def relax_steps(self, data, method, verbose, tree, n_jobs, second_pass = False, 
     """
 
     self.unassigned_data_relax = self.unassigned_data_updated
-    self = relax_method(self, data, method, verbose, tree, n_jobs, second_pass=second_pass)
-    self, cluster_list, cluster_indices = update_clusters(self, data)
+    relax_method(self, data, method, verbose, tree, n_jobs, second_pass=second_pass)
+    cluster_list, cluster_indices = update_clusters(self, data)
     self.unassigned_data_relax = self.unassigned_data_updated
 
-    return self, cluster_list, cluster_indices
+    return cluster_list, cluster_indices
 
 def get_minnpix(self, pixel_size, radius):
     """
@@ -506,7 +508,7 @@ def find_unassigned_data(self, data, stop):
     self.unassigned_data = self.unassigned_data[:,sortidx]
     self.leodis_arr = self.leodis_arr[:,sortidx]
 
-    return self
+    return
 
 def generate_kdtree(self):
     """
@@ -843,8 +845,8 @@ def bud_check(self, data, cluster, linked_clusters):
             # Merge all buds.
             for bud_cluster in linked_buds:
                 self.clusters.pop(bud_cluster.cluster_idx)
-                self = update_leodis_array(self, bud_cluster, -1)
-                self = merge_into_cluster(self, data, linked_bud, bud_cluster)
+                update_leodis_array(self, bud_cluster, -1)
+                merge_into_cluster(self, data, linked_bud, bud_cluster)
             linked_buds = [linked_bud]
 
     # Now we want to work out what to return.
@@ -894,8 +896,8 @@ def bud_check(self, data, cluster, linked_clusters):
             # If both of these conditions are false - merge the cluster and bud.
             if not np.any([check1, check2]):
                 self.clusters.pop(linked_bud.cluster_idx)
-                self = update_leodis_array(self, linked_bud, -1)
-                self = merge_into_cluster(self, data, cluster, linked_bud)
+                update_leodis_array(self, linked_bud, -1)
+                merge_into_cluster(self, data, cluster, linked_bud)
             linked_clusters = linked_clusters
         else:
             # If this isn't the case - forget about the bud and just return the
@@ -1140,9 +1142,9 @@ def add_to_cluster_dictionary(self, cluster):
     """
 
     self.clusters[self.cluster_idx] = cluster
-    self = update_leodis_array(self, cluster, cluster.cluster_idx)
+    update_leodis_array(self, cluster, cluster.cluster_idx)
 
-    return self
+    return
 
 def merge_into_cluster(self, data, linked_cluster, cluster, re = False):
     """
@@ -1158,9 +1160,9 @@ def merge_into_cluster(self, data, linked_cluster, cluster, re = False):
             _linked_cluster = _linked_cluster.antecedent
             _linked_cluster = merge_clusters(_linked_cluster, cluster, data, branching=True)
         linked_cluster = merge_clusters(linked_cluster, cluster, data)
-    self = update_leodis_array(self, cluster, linked_cluster.cluster_idx)
+    update_leodis_array(self, cluster, linked_cluster.cluster_idx)
 
-    return self
+    return
 
 def resolve_ambiguity(self, data, linked_clusters, cluster, re = False):
     """
@@ -1192,20 +1194,20 @@ def resolve_ambiguity(self, data, linked_clusters, cluster, re = False):
 
     if not linked_clusters:
         linked_cluster = linked_buds.pop()
-        self = merge_into_cluster(self, data, linked_cluster, cluster, re = re)
+        merge_into_cluster(self, data, linked_cluster, cluster, re = re)
     elif len(linked_clusters) == 1:
         linked_cluster = linked_clusters[0]
-        self = merge_into_cluster(self, data, linked_cluster, cluster, re = re)
+        merge_into_cluster(self, data, linked_cluster, cluster, re = re)
     else:
-        self, linked_cluster = branching(self, data, linked_clusters, cluster, re = re)
+        linked_cluster = branching(self, data, linked_clusters, cluster, re = re)
 
     # Now merge any remaining buds into linked cluster
     for bud_cluster in linked_buds:
         self.clusters.pop(bud_cluster.cluster_idx)
-        self = update_leodis_array(self, bud_cluster, -1)
-        self = merge_into_cluster(self, data, linked_cluster, bud_cluster, re = re)
+        update_leodis_array(self, bud_cluster, -1)
+        merge_into_cluster(self, data, linked_cluster, bud_cluster, re = re)
 
-    return self
+    return
 
 def update_leodis_array(self, cluster, value):
     """
@@ -1215,7 +1217,7 @@ def update_leodis_array(self, cluster, value):
     for j in range(0, len(cluster.cluster_indices)):
         self.leodis_arr[1, cluster.cluster_indices[j]] = int(value)
 
-    return self
+    return
 
 def branching(self, data, linked_clusters, cluster, re = False):
     """
@@ -1225,7 +1227,7 @@ def branching(self, data, linked_clusters, cluster, re = False):
     if re == False:
         # Form the branch
         self.clusters[cluster.cluster_idx] = cluster
-        self = update_leodis_array(self, cluster, cluster.cluster_idx)
+        update_leodis_array(self, cluster, cluster.cluster_idx)
         linked_cluster = form_a_branch(cluster, data, descendants = linked_clusters)
     else:
         # If the conditions have been relaxed, we need to ensure we don't
@@ -1261,7 +1263,7 @@ def branching(self, data, linked_clusters, cluster, re = False):
 
         # Form the branch
         self.clusters[cluster.cluster_idx] = cluster
-        self = update_leodis_array(self, cluster, cluster.cluster_idx)
+        update_leodis_array(self, cluster, cluster.cluster_idx)
         linked_cluster = form_a_branch(cluster, data, descendants = _linked_clusters)
 
         # Merge data into correct _linked_cluster_ afterwards - otherwise points
@@ -1272,7 +1274,7 @@ def branching(self, data, linked_clusters, cluster, re = False):
             for j in range(np.size(_cluster_indices)):
                 _linked_cluster_ = merge_data(_linked_cluster_, _cluster_members[j], _cluster_indices[j], data)
 
-    return self, linked_cluster
+    return linked_cluster
 
 def remove_branch(self, data, linked_clusters, cluster):
     """
@@ -1338,7 +1340,7 @@ def remove_branch(self, data, linked_clusters, cluster):
         _linked_clusters = [[item] for item in linked_clusters]
         for i in range(len(_rembranch)):
             if _rembranch[i] == True:
-                self = correct_branching(self, data, _linked_clusters[i][0], cluster)
+                correct_branching(self, data, _linked_clusters[i][0], cluster)
                 _linked_clusters[i] = [descendant for descendant in linked_clusters[i].descendants]
             else:
                 _linked_clusters[i] = [linked_clusters[i]]
@@ -1407,7 +1409,7 @@ def correct_branching(self, data, rembranch, cluster):
         descendant.reset_antecedent()
         descendant.reset_antecessor()
 
-    return self
+    return
 
 def find_linked_buds(self, linked_clusters, cluster):
     """
@@ -1507,7 +1509,7 @@ def update_clusters(self, data):
 
     """
 
-    self.unassigned_data_updated = None
+    self.unassigned_data_updated = [None]
     cluster_list = []
     cluster_indices = []
     bud_list = []
@@ -1538,7 +1540,7 @@ def update_clusters(self, data):
     else:
         pass
 
-    return self, cluster_list, cluster_indices
+    return cluster_list, cluster_indices
 
 def get_relaxed_cluster_criteria(relax, cluster_criteria_original_):
     """
@@ -1591,7 +1593,7 @@ def get_forest(self, verbose):
         print('')
         print('')
 
-    return self
+    return
 
 def num_links(self):
     """

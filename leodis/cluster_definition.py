@@ -333,13 +333,12 @@ def merge_clusters(self, merge_cluster, data, branching = False):
 
     return self
 
-#def merge_data(self, data_cluster, data_idx, data):
 def merge_data(self, data_idx, un_idx, data):
     """
     Add data points to a cluster and update cluster properties
 
     """
-    
+
     self.cluster_members = np.concatenate(
             [self.cluster_members, np.array([data_idx])])
     self.cluster_indices = np.concatenate([self.cluster_indices, np.array([un_idx])])
