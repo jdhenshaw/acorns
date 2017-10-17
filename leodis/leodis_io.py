@@ -20,24 +20,11 @@ def reshape_leodis_array(self, data):
     data array (rather than the unassigned array)
     """
 
-    _leodis_arr = -1*np.ones([3, len(data[0,:])])
-    for j in range(len(data[0,:])):
-        idx = np.squeeze(np.where((self.leodis_arr[0,:] == data[0,j]) & \
-                                  (self.leodis_arr[1,:] == data[1,j]) & \
-                                  (self.leodis_arr[3,:] == data[2,j]) & \
-                                  (self.leodis_arr[4,:] == data[3,j])))
-
-        if np.size(idx) == 0:
-            _leodis_arr[0:2,j] = data[0:2,j]
-            _leodis_arr[2, j] = -1
-
-        if np.size(idx) == 1:
-            _leodis_arr[0:2,j] = data[0:2,j]
-            _leodis_arr[2, j] = self.leodis_arr[2,idx]
-
-        if np.size(idx) == 2:
-            _leodis_arr[0:2,j] = data[0:2,j]
-            _leodis_arr[2, j] = self.leodis_arr[2,idx[0]]
+    _leodis_arr = -1*np.ones([2, len(data[0,:])])
+    _leodis_arr[0,:] = np.arange(len(data[0,:]))
+    sortidx = np.argsort(self.leodis_arr[0,:])
+    sortedleodis_arr = self.leodis_arr[:,sortidx]
+    _leodis_arr[1,sortedleodis_arr[0,:]] = sortedleodis_arr[1,:]
 
     self.leodis_arr = None
     self.leodis_arr = _leodis_arr
@@ -57,9 +44,9 @@ def load_leodis(filename):
     leodis = pickle.load( open(filename, "rb"))
     return leodis
 
-def output_ascii(self, outputfile, extended=None, leodis_cols=None, headings=None):
+def output_ascii(self, data, outputfile, extended=None, leodis_cols=None, headings=None):
     OF = open(outputfile,'w')
-    _members = self.cluster_members
+    _members = data[:,self.cluster_members]
 
     if extended is None:
         form = gen_format(_members)
@@ -79,11 +66,11 @@ def output_ascii(self, outputfile, extended=None, leodis_cols=None, headings=Non
 
     return
 
-def output_fits(self, outputfile, extended=None, leodis_cols=None, headings=None):
+def output_fits(self, data, outputfile, extended=None, leodis_cols=None, headings=None):
     """
     Outputs an astropy table containing the information for each cluster.
     """
-    table = make_table(self, extended=extended, leodis_cols=leodis_cols, headings=headings )
+    table = make_table(self, data, extended=extended, leodis_cols=leodis_cols, headings=headings )
     table.write(outputfile, format='fits', overwrite=True)
     #print(table)
     #print("")
@@ -120,12 +107,12 @@ def get_members_extended(clustermembers, extended, leodis_cols):
 
     return clustermembersextended
 
-def make_table(self, extended=None, leodis_cols=None, headings=None):
+def make_table(self, data, extended=None, leodis_cols=None, headings=None):
     """
     Generates an astropy table to hold the information
     """
 
-    _members = self.cluster_members
+    _members = data[:,self.cluster_members]
     table = Table(meta={'name': self.cluster_idx})
 
     if extended is None:
@@ -158,16 +145,15 @@ def housekeeping(self):
     """
     Tidy up the output leodis file
     """
-    del self.clusters
+
     del self.cluster_criteria
-    del self.link
     del self.max_dist
     del self.method
     del self.min_height
     del self.min_sep
     del self.minnpix_cluster
     del self.relax
+    del self.unassigned_data_updated
     del self.unassigned_data
-    del self.unassigned_data_relax
 
     return self

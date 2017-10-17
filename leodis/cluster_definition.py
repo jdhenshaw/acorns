@@ -11,7 +11,7 @@ import sys
 
 class Cluster(object):
 
-    def __init__(self, data_point, idx=None, leodis=None):
+    def __init__(self, data_point, data_idx, idx=None, leodis=None):
 
         """
 
@@ -39,15 +39,17 @@ class Cluster(object):
         self._merge_level = None
         self._cluster_idx  = idx
 
-        # cluster point locations
-        self.cluster_members = np.transpose([data_point])
+        # cluster point properties
+        # data indices
+        self.cluster_members = np.array([data_idx], dtype='i4')
         # cluster indices
-        self.cluster_indices = np.array([idx])
+        self.cluster_indices = np.array([idx], dtype='i4')
         # peak location
         self._peak_location = np.array([data_point[0],data_point[1]])
         # Set up a dictionary of important information. See statistics below
         self._statistics = {}
         self._statistics[0] = [data_point[2],data_point[2],data_point[2],data_point[2],data_point[2]]
+
         # Add remaining attributes to stats dict
         for j in range(4, len(data_point)):
             self._statistics[j-3] = [data_point[j],data_point[j],data_point[j],data_point[j],data_point[j]]
@@ -102,7 +104,7 @@ class Cluster(object):
 
         """
 
-        return self.cluster_members.shape[1]
+        return np.size(self.cluster_members)
 
     @property
     def leaf_cluster(self):
@@ -159,7 +161,7 @@ class Cluster(object):
 
         return self._siblings
 
-    def output_cluster_table(self, outputfile, format=None, extended=None, leodis_cols=None, headings=None ):
+    def output_cluster_table(self, data, outputfile, format=None, extended=None, leodis_cols=None, headings=None ):
         """
         Generates an output table for a given leodis cluster.
 
@@ -178,10 +180,10 @@ class Cluster(object):
 
         if format=="ascii":
             from .leodis_io import output_ascii
-            return output_ascii(self, outputfile, extended=extended, leodis_cols=leodis_cols, headings=headings)
+            return output_ascii(self, data, outputfile, extended=extended, leodis_cols=leodis_cols, headings=headings)
         elif format=="fits":
             from .leodis_io import output_fits
-            return output_fits(self, outputfile, extended=extended, leodis_cols=leodis_cols, headings=headings)
+            return output_fits(self, data, outputfile, extended=extended, leodis_cols=leodis_cols, headings=headings)
         else:
             raise IOError("Please enter a valid output format (ascii, fits)")
 
@@ -294,7 +296,7 @@ def _set_merge_level(self, descendants):
 
     return self._merge_level
 
-def merge_clusters(self, merge_cluster, branching = False):
+def merge_clusters(self, merge_cluster, data, branching = False):
     """
     Add descendant data points to a new branch
 
@@ -304,79 +306,67 @@ def merge_clusters(self, merge_cluster, branching = False):
         merge_cluster._cluster_idx  = self._cluster_idx
 
     # Merge cluster into the linked cluster
-    self.cluster_members = np.hstack(
+    self.cluster_members = np.concatenate(
             [self.cluster_members, merge_cluster.cluster_members])
-    self.cluster_indices = np.hstack([self.cluster_indices, \
+    self.cluster_indices = np.concatenate([self.cluster_indices, \
                                       merge_cluster.cluster_indices])
 
+    cluster_data = data[:, self.cluster_members]
+
     # Update the cluster statistics
-    self._statistics[0] = [np.min(self.cluster_members[2,:]), \
-                           np.max(self.cluster_members[2,:]),\
-                           np.mean(self.cluster_members[2,:]),\
-                           np.median(self.cluster_members[2,:]),\
-                           np.std(self.cluster_members[2,:])]
+    self._statistics[0] = [np.min(cluster_data[2,:]), \
+                           np.max(cluster_data[2,:]),\
+                           np.mean(cluster_data[2,:]),\
+                           np.median(cluster_data[2,:]),\
+                           np.std(cluster_data[2,:])]
 
     # Repeat for all quantities under consideration
-    for j in range(4, len(self.cluster_members[:,0])):
-        self._statistics[j-3] = [np.min(self.cluster_members[j,:]), \
-                                 np.max(self.cluster_members[j,:]),\
-                                 np.mean(self.cluster_members[j,:]),\
-                                 np.median(self.cluster_members[j,:]),\
-                                 np.std(self.cluster_members[j,:])]
-
+    for j in range(4, len(cluster_data[:,0])):
+        self._statistics[j-3] = [np.min(cluster_data[j,:]), \
+                                 np.max(cluster_data[j,:]),\
+                                 np.mean(cluster_data[j,:]),\
+                                 np.median(cluster_data[j,:]),\
+                                 np.std(cluster_data[j,:])]
     # Update the peak location
-
-    peak_idx = np.squeeze(np.where(self.cluster_members[2,:] == np.max(self.cluster_members[2,:])))
-    if np.size(np.squeeze(peak_idx)) != 1:
-        peak_idx = peak_idx[0]
-        self._peak_location = np.array([self.cluster_members[0,peak_idx], self.cluster_members[1,peak_idx]])
-    else:
-        self._peak_location = np.array([self.cluster_members[0,peak_idx], self.cluster_members[1,peak_idx]])
+    peak_idx = np.argmax(cluster_data[2,:])
+    self._peak_location = np.array([cluster_data[0,peak_idx], cluster_data[1,peak_idx]])
 
     return self
 
-def merge_data(self, data):
+def merge_data(self, data_idx, un_idx, data):
     """
     Add data points to a cluster and update cluster properties
 
     """
 
-    if np.size(self.cluster_indices) > 1.0:
-        index = self.cluster_indices[0]
-    else:
-        index = self.cluster_indices
+    self.cluster_members = np.concatenate(
+            [self.cluster_members, np.array([data_idx])])
+    self.cluster_indices = np.concatenate([self.cluster_indices, np.array([un_idx])])
 
-    # Merge cluster into the linked cluster
-    self.cluster_members = np.hstack(
-            [self.cluster_members, np.atleast_2d(data).T])
-    self.cluster_indices = np.hstack([self.cluster_indices, index])
+    cluster_data = data[:, self.cluster_members]
 
     # Update the cluster statistics
-    self._statistics[0] = [np.min(self.cluster_members[2,:]), \
-                           np.max(self.cluster_members[2,:]),\
-                           np.mean(self.cluster_members[2,:]),\
-                           np.median(self.cluster_members[2,:]),\
-                           np.std(self.cluster_members[2,:])]
+    self._statistics[0] = [np.min(cluster_data[2,:]), \
+                           np.max(cluster_data[2,:]),\
+                           np.mean(cluster_data[2,:]),\
+                           np.median(cluster_data[2,:]),\
+                           np.std(cluster_data[2,:])]
 
     # Repeat for all quantities under consideration
-    for j in range(4, len(self.cluster_members[:,0])):
-        self._statistics[j-3] = [np.min(self.cluster_members[j,:]), \
-                                 np.max(self.cluster_members[j,:]),\
-                                 np.mean(self.cluster_members[j,:]),\
-                                 np.median(self.cluster_members[j,:]),\
-                                 np.std(self.cluster_members[j,:])]
+    for j in range(4, len(cluster_data[:,0])):
+        self._statistics[j-3] = [np.min(cluster_data[j,:]), \
+                                 np.max(cluster_data[j,:]),\
+                                 np.mean(cluster_data[j,:]),\
+                                 np.median(cluster_data[j,:]),\
+                                 np.std(cluster_data[j,:])]
 
     # Update the peak location
-    peak_idx = np.squeeze(np.where(self.cluster_members[2,:] == np.max(self.cluster_members[2,:])))
-    if np.size(np.squeeze(peak_idx)) != 1:
-        peak_idx = peak_idx[0]
-        self._peak_location = np.array([self.cluster_members[0,peak_idx], self.cluster_members[1,peak_idx]])
-    else:
-        self._peak_location = np.array([self.cluster_members[0,peak_idx], self.cluster_members[1,peak_idx]])
+    peak_idx = np.argmax(cluster_data[2,:])
+    self._peak_location = np.array([cluster_data[0,peak_idx], cluster_data[1,peak_idx]])
 
     return self
 
-def form_a_branch(self, descendants = []):
+def form_a_branch(self, data, descendants = []):
     """
     Convert the current cluster into a branch and update the information
     """
@@ -389,6 +379,6 @@ def form_a_branch(self, descendants = []):
 
     # Merge descendants into branch and update the important information
     for descendant in descendants:
-        self = merge_clusters(self, descendant, branching = True)
+        self = merge_clusters(self, descendant, data, branching = True)
 
     return self

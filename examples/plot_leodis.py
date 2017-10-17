@@ -29,9 +29,7 @@ ax.set_xlabel('X')
 ax.set_ylabel('Y')
 ax.set_zlabel('Velocity  [km/s]')
 
-keep = (dataarr_leodis[2,:] >= 0.0)#L.min_height)
-datanew = dataarr_leodis[:,keep]
-ax.scatter(datanew[0,:], datanew[1,:], datanew[4,:], marker='o', s=2., c='black',linewidth=0., alpha=0.2)
+ax.scatter(dataarr_leodis[0,:], dataarr_leodis[1,:], dataarr_leodis[4,:], marker='o', s=2., c='black',linewidth=0., alpha=0.2)
 
 # Generate a new colour for each trunk
 n = len(L.forest)
@@ -44,18 +42,18 @@ for tree in L.forest:
     if L.forest[tree].trunk.leaf_cluster:
         #pass
         #c=next(colour)
-        ax.scatter(L.forest[tree].trunk.cluster_members[0,:], L.forest[tree].trunk.cluster_members[1,:], L.forest[tree].trunk.cluster_members[4,:], \
+        ax.scatter(dataarr_leodis[0, L.forest[tree].trunk.cluster_members], dataarr_leodis[1,L.forest[tree].trunk.cluster_members], dataarr_leodis[4,L.forest[tree].trunk.cluster_members], \
                    marker='o', s=3., c='black',linewidth=0, alpha=0.7)
-        ax.scatter(L.forest[tree].trunk.cluster_members[0,:], L.forest[tree].trunk.cluster_members[1,:], L.forest[tree].trunk.cluster_members[4,:], \
+        ax.scatter(dataarr_leodis[0, L.forest[tree].trunk.cluster_members], dataarr_leodis[1,L.forest[tree].trunk.cluster_members], dataarr_leodis[4,L.forest[tree].trunk.cluster_members], \
                    marker='o', s=10., c='None', edgecolors = c ,alpha=0.9, depthshade=False, linewidth = 0.8)
     else:
         #c=next(colour)
         #pass
         n = len(L.forest[tree].leaves)
         col=iter(cm.rainbow(np.linspace(0,1,n)))
-        ax.scatter(L.forest[tree].trunk.cluster_members[0,:], L.forest[tree].trunk.cluster_members[1,:], L.forest[tree].trunk.cluster_members[4,:], \
+        ax.scatter(dataarr_leodis[0, L.forest[tree].trunk.cluster_members], dataarr_leodis[1,L.forest[tree].trunk.cluster_members], dataarr_leodis[4,L.forest[tree].trunk.cluster_members], \
                    marker='o', s=3., c='black',linewidth=0, alpha=0.7)
-        ax.scatter(L.forest[tree].trunk.cluster_members[0,:], L.forest[tree].trunk.cluster_members[1,:], L.forest[tree].trunk.cluster_members[4,:], \
+        ax.scatter(dataarr_leodis[0, L.forest[tree].trunk.cluster_members], dataarr_leodis[1,L.forest[tree].trunk.cluster_members], dataarr_leodis[4,L.forest[tree].trunk.cluster_members], \
                    marker='o', s=10., c='None', edgecolors = c ,alpha=0.9, depthshade=False, linewidth = 0.8)
         #for leaf in L.forest[tree].leaves:
         #    c=next(col)
