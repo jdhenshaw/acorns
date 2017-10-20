@@ -34,7 +34,7 @@ ax.scatter(dataarr_leodis[0,:], dataarr_leodis[1,:], dataarr_leodis[4,:], marker
 # Generate a new colour for each trunk
 n = len(L.forest)
 colour=iter(cm.rainbow(np.linspace(0,1,n)))
-#colour=iter(cm.rainbow(np.linspace(0,1,3)))
+#colour=iter(cm.rainbow(np.linspace(0,1,5)))
 
 # Toggle comments to plot just hierarchical structures
 for tree in L.forest:
@@ -68,7 +68,7 @@ plt.show()
 
 fig   = plt.figure(figsize=( 8.0, 8.0))
 ax = fig.add_subplot(111)
-ax.set_xlim([-1,40])
+ax.set_xlim([-1,50])
 ax.set_ylim([-0.1,3])
 ind = 0
 

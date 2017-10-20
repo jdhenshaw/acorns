@@ -47,5 +47,5 @@ verbose = True
 interactive = False
 
 # Call leodis
-L = Leodis.process( dataarr_leodis, cluster_criteria, method = "PPV", min_height = min_height, pixel_size = pixel_size, relax=relax, stop = stop, verbose=verbose, interactive = interactive, n_jobs=n_jobs )
+L = Leodis.process( dataarr_leodis, cluster_criteria, method = "PPV", min_height = min_height, pixel_size = pixel_size, relax=relax, stop = stop, verbose=verbose, interactive = interactive, n_jobs=n_jobs, nsteps=1 )
 L.save_to(datadirectory+'example.leodis')

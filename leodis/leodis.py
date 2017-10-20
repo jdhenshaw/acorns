@@ -14,6 +14,7 @@ import sys
 import time
 from . import leodis_io
 from . import leodis_plots
+from .establishing_links import *
 from .progressbar import AnimatedProgressBar
 from scipy.spatial import distance
 from scipy.spatial import cKDTree
@@ -56,7 +57,7 @@ class Leodis(object):
                 min_height = 0, pixel_size = 0, \
                 relax = 0, stop = 0, \
                 verbose = False, interactive = False,
-                n_jobs = 1 ):
+                n_jobs = 1, nsteps = 1 ):
 
         """
 
@@ -139,7 +140,7 @@ class Leodis(object):
         self.max_dist = get_maxdist(self, pixel_size)
         self.cluster_criteria[0] = self.max_dist
         self.min_sep = 2.*self.cluster_criteria[0]
-
+        self.nsteps = nsteps
         # Prime the leodis information:
         # leodis_arr will be updated with the indices of new clusters
         self.leodis_arr = gen_leodis_arr(self, data, stop)
@@ -161,7 +162,7 @@ class Leodis(object):
 
         count= 0.0
         if verbose:
-            progress_bar = print_to_terminal(self, data, count, \
+            progress_bar = print_to_terminal(self, 0, data, count, \
                                              unassigned_array_length, method)
 
         # Cycle through the unassigned array
@@ -188,6 +189,9 @@ class Leodis(object):
             # Find clusters that are closely associated with the current data
             # point
             linked_clusters = find_linked_clusters(self, data, i, bud_cluster, link)
+
+            if len(linked_clusters) >= 1:
+                linked_clusters = check_other_components(self, i, i, data_idx, data, linked_clusters, bud_cluster, tree, n_jobs, re=False)
 
             """
 
@@ -255,7 +259,7 @@ class Leodis(object):
         # to pick up any remaining stragglers not linked during the first pass
 
         if (np.size(self.unassigned_data_updated)>1):
-            cluster_list, cluster_indices = relax_steps(self, data, method, verbose, tree, n_jobs, second_pass=True)
+            cluster_list, cluster_indices = relax_steps(self, 0, data, method, verbose, tree, n_jobs, second_pass=True)
         endhierarchy = time.time()-starthierarchy
 
 #==============================================================================#
@@ -267,9 +271,11 @@ class Leodis(object):
 
         if relaxcond and not interactive and (np.size(self.unassigned_data_updated)>1):
             startrelax = time.time()
+            inc = self.relax/self.nsteps
             cluster_criteria_original = cluster_criteria
-            self.cluster_criteria = get_relaxed_cluster_criteria(self.relax, cluster_criteria_original)
-            cluster_list, cluster_indices = relax_steps(self, data, method, verbose, tree, n_jobs, second_pass=False)
+            for j in range(1, self.nsteps+1):
+                self.cluster_criteria = get_relaxed_cluster_criteria(j*inc, cluster_criteria_original)
+                cluster_list, cluster_indices = relax_steps(self, j, data, method, verbose, tree, n_jobs, second_pass=False)
             endrelax = time.time()-startrelax
 
         elif interactive and (np.size(self.unassigned_data_updated)>1):
@@ -278,11 +284,10 @@ class Leodis(object):
             #leodis_plots.plot_scatter(self)
             stop = True
             while stop != False:
-                # Relax
                 self.relax = np.array(eval(input("Please enter relax values in list format: ")))
                 print('')
                 self.cluster_criteria = get_relaxed_cluster_criteria(self.relax, cluster_criteria_original)
-                cluster_list, cluster_indices = relax_steps(self, data, method, verbose, tree, n_jobs, second_pass=False)
+                cluster_list, cluster_indices = relax_steps(self, j, data, method, verbose, tree, n_jobs, second_pass=False)
                 #leodis_plots.plot_scatter(self)
                 s = str(input("Would you like to continue? "))
                 print('')
@@ -326,6 +331,8 @@ class Leodis(object):
         return self
 
 #==============================================================================#
+# io
+#==============================================================================#
 
     def save_to(self, filename):
         """
@@ -343,86 +350,8 @@ class Leodis(object):
         return load_leodis(filename)
 
 #==============================================================================#
-# Methods
+# Cluster criteria
 #==============================================================================#
-
-def relax_method(self, data, method, verbose, tree, n_jobs, second_pass = False):
-    """
-
-    Notes
-    -----
-
-    At this stage the main hierarchy has been established. If
-    the 'relax' key word has been implemented by the user - the
-    linking constraints will be relaxed and leodis will make a
-    second pass at linking some of the remaining unassigned data.
-
-    """
-
-    unassigned_array_length = len(self.unassigned_data_relax[0,:])
-
-    count=0.0
-    if verbose and second_pass:
-        progress_bar = print_to_terminal(self, data, count, \
-                                         unassigned_array_length,\
-                                         method, re=False, second_pass=second_pass)
-    else:
-        progress_bar = print_to_terminal(self, data, count, \
-                                         unassigned_array_length,\
-                                         method, re=True, second_pass=second_pass)
-
-    # Now run the linking again with the relaxed constraints
-    for i in range(0, unassigned_array_length):
-
-        if verbose and (count % 1 == 0):
-            progress_bar + 1
-            progress_bar.show_progress()
-
-        # Extract the current data point
-        data_point = np.array(self.unassigned_data_relax[:,i])
-        # Retrieve this data point's location in the data array
-        data_idx = get_data_index(self, data, data_point)
-
-        current_idx = get_current_index(self, i)
-
-        # Every data point starts as a new cluster
-        self.cluster_idx = current_idx
-        bud_cluster = Cluster(data_point, data_idx, idx=self.cluster_idx, leodis=self)
-
-        # Calculate distances between all data points
-        link = get_links(self, i, current_idx, tree, n_jobs, re=True)
-
-        # Find clusters that are closely associated with the current
-        # data point
-        linked_clusters = find_linked_clusters(self, data, i, bud_cluster, link, re = True)
-
-        if not linked_clusters:
-            add_to_cluster_dictionary(self, bud_cluster)
-        elif len(linked_clusters) == 1:
-            merge_into_cluster(self, data, linked_clusters[0], bud_cluster, re = True)
-        else:
-            resolve_ambiguity(self, data, linked_clusters, bud_cluster, re = True)
-
-    if verbose:
-        progress_bar.progress = 100  # Done
-        progress_bar.show_progress()
-        print('')
-        print('')
-
-    return
-
-def relax_steps(self, data, method, verbose, tree, n_jobs, second_pass = False, plot=False):
-    """
-    Main steps taken when the linking criteria are relaxed
-
-    """
-
-    self.unassigned_data_relax = self.unassigned_data_updated
-    relax_method(self, data, method, verbose, tree, n_jobs, second_pass=second_pass)
-    cluster_list, cluster_indices = update_clusters(self, data)
-    self.unassigned_data_relax = self.unassigned_data_updated
-
-    return cluster_list, cluster_indices
 
 def get_minnpix(self, pixel_size, radius):
     """
@@ -459,6 +388,12 @@ def latticepoints(circle_radius, pixel_size):
 
     return numlatticepoints
 
+def round_to_1(val):
+    """
+    To round to 1 sig fig
+    """
+    return round(val, -int(floor(log10(abs(val)))))
+
 def get_maxdist(self, pixel_size):
     """
     Returns the Euclidean distance between centre of a cluster with npixels of
@@ -478,11 +413,9 @@ def get_maxdist(self, pixel_size):
 
     return dist
 
-def round_to_1(val):
-    """
-    To round to 1 sig fig
-    """
-    return round(val, -int(floor(log10(abs(val)))))
+#==============================================================================#
+# Data handling
+#==============================================================================#
 
 def gen_leodis_arr(self, data, stop):
     """
@@ -521,6 +454,64 @@ def generate_kdtree(self):
     tree = cKDTree(coordinates.T)
 
     return tree
+
+def get_data_index(self, data, data_point):
+    """
+    Returns the index of the current data point from the original unassigned
+    array
+    """
+
+    if self.method == 1:
+        idx = np.where((data[0,:]==data_point[0]) & \
+                       (data[1,:]==data_point[1]) & \
+                       (data[2,:]==data_point[2]) & \
+                       (data[3,:]==data_point[3]) & \
+                       (data[4,:]==data_point[4]))
+    else:
+        idx = np.where((data[0,:]==data_point[0]) & \
+                       (data[1,:]==data_point[1]) & \
+                       (data[2,:]==data_point[2]) & \
+                       (data[3,:]==data_point[3]))
+
+    idx = idx[0][0]
+
+    return idx
+
+def get_current_index(self, index):
+    """
+    Returns the index of the current data point from the original unassigned
+    array
+    """
+
+    if self.method == 1:
+        current_idx = np.where((self.unassigned_data[0,:]==self.unassigned_data_relax[0,index]) & \
+                               (self.unassigned_data[1,:]==self.unassigned_data_relax[1,index]) & \
+                               (self.unassigned_data[2,:]==self.unassigned_data_relax[2,index]) & \
+                               (self.unassigned_data[3,:]==self.unassigned_data_relax[3,index]) & \
+                               (self.unassigned_data[4,:]==self.unassigned_data_relax[4,index]))
+    else:
+        current_idx = np.where((self.unassigned_data[0,:]==self.unassigned_data_relax[0,index]) & \
+                               (self.unassigned_data[1,:]==self.unassigned_data_relax[1,index]) & \
+                               (self.unassigned_data[2,:]==self.unassigned_data_relax[2,index]) & \
+                               (self.unassigned_data[3,:]==self.unassigned_data_relax[3,index]))
+
+    current_idx = current_idx[0][0]
+
+    return current_idx
+
+def get_cluster_idx(_cluster):
+    """
+    returns cluster idx for sorting
+    """
+
+    return _cluster.cluster_idx
+
+#==============================================================================#
+# Establish initial links
+#==============================================================================#
+
+# These routines are primarily involved in querying the KDtree in order to find
+# the nearest clusters to the data point you are trying to link.
 
 def get_links(self, index, current_index, tree, n_jobs, re=False):
     """
@@ -587,6 +578,20 @@ def further_query(link, coords, unassigned_data, r ):
 
     return link
 
+#==============================================================================#
+# Find linked clusters
+#==============================================================================#
+
+# These routines are used to identify linked clusters. During the initial
+# clustering phase it will return the antecessor of the linked cluster(s). Each
+# linked cluster has to pass a number of conditions. A strong link must be
+# forged between the data point and the cluster - this is based on both the mean
+# properties of the clusters and the local properties.
+
+# During the relax phase the process is essentially the same although a decision
+# has to be made as to which cluster in a hierarchy the data point will be
+# linked to.
+
 def find_linked_clusters(self, data, index, cluster, linked_indices, re = False):
     """
     Return all clusters that are linked to the data_point which is currently
@@ -610,34 +615,58 @@ def find_linked_clusters(self, data, index, cluster, linked_indices, re = False)
         linked_clusters = []
 
     if len(linked_clusters) != 0:
+        # Initial clustering
+
         if re == False:
             # Identify largest common ancestor of the linked clusters - the
             # antecessor.
+
             linked_clusters = [self.clusters[ID].antecessor for ID in linked_clusters]
             linked_clusters = remdup_preserve_order(linked_clusters)
-        else:
-            # Identify the correct level in the hierarchy to add the cluster.
-            antecessors = [self.clusters[ID].antecessor for ID in linked_clusters]
-            antecessors = remdup_preserve_order(antecessors)
-            antecessors = sorted(antecessors, key=get_cluster_idx, reverse=True)
 
+            # Check to see if the data point satisfied the local conditions
+            if self.method==1:
+                linked_clusters = local_links(self, index, data, cluster, linked_clusters, re=re)
+
+            # Check to see if the data point satisfied the global conditions
+            if len(linked_clusters)>1:
+                var = []
+                for link in linked_clusters:
+                    var = get_var(self, data, cluster, link, var)
+                linked_clusters, var = remove_outliers(self, data, cluster, linked_clusters, var, 5., 7.)
+
+        else:
+            # Relax phase
+
+            # Get the linked clusters
             linked_clusters = [self.clusters[ID] for ID in linked_clusters]
             linked_clusters = remdup_preserve_order(linked_clusters)
+
+            # Check to see if the data point satisfied the local conditions
+            if self.method==1:
+                linked_clusters = local_links(self, index, data, cluster, linked_clusters, re=re)
+
+            # Check to see if the data point satisfied the global conditions
+            var = []
+            for link in linked_clusters:
+                var = get_var(self, data, cluster, link, var)
+            linked_clusters, var = remove_outliers(self, data, cluster, linked_clusters, var, 3., 5.)
+
+            # Now identify where the data point can be slotted into an already
+            # established hierarchy
+            antecessors = [link.antecessor for link in linked_clusters]
+            antecessors = remdup_preserve_order(antecessors)
+            antecessors = sorted(antecessors, key=get_cluster_idx, reverse=True)
             if len(antecessors)==1:
                 linked_clusters = find_linked_clusters_single_antecessor(self, data, cluster, linked_clusters)
             else:
                 linked_clusters = find_linked_clusters_multiple_antecessors(self, data, cluster, linked_clusters, antecessors)
 
-        if re == True:
-            # During the relax phase - remove any linked clusters whose
-            # properties differ by more than 3sigma from those of the cluster.
-            var = []
-            for link in linked_clusters:
-                var = get_var(self, data, cluster, link, var)
-            linked_clusters, var = remove_outliers(self, linked_clusters, var)
+        # If method = PPV then we need to check the linked clusters to prevent
+        # velocity components from the same position from being linked to the
+        # same cluster
+
         if self.method == 1:
-            # If method == PPV then we also want to prevent multiple components
-            # located at the same location from being linked together.
             if re == False:
                 linked_clusters = multi_component_check(self, data, cluster, linked_clusters)
             else:
@@ -647,12 +676,141 @@ def find_linked_clusters(self, data, index, cluster, linked_indices, re = False)
 
     return linked_clusters
 
-def get_cluster_idx(_cluster):
+def local_links(self, index, data, cluster, linked_clusters, re=False):
     """
-    returns cluster idx for sorting
+    Return all linked clusters whose nearest neighbours to the current cluster
+    are closely matched.
+
+    NOTE:
+
+    This slows things down a bit due to having to generate the kdtree for the
+    linked cluster. I'm sure there could be a faster way to do this...
+
     """
 
-    return _cluster.cluster_idx
+    # Get the properties of the cluster
+    if re == False:
+        _coords = np.array([self.unassigned_data[:,index]])
+    else:
+        _coords = np.array([self.unassigned_data_relax[:,index]])
+
+    keep = []
+
+    # Loop over the linked clusters
+    for link in linked_clusters:
+
+        if self.method==2:
+            coordinates = data[0:3,link.cluster_members]
+        else:
+            coordinates = data[0:2,link.cluster_members]
+
+        # Generate a cluster tree from the coordinates of the linked cluster
+        # This is where we are slowing down...
+        clustertree = cKDTree(coordinates.T)
+
+        # Get the 5 nearest neighbours belonging to the linked cluster
+        if self.method <= 1:
+            dd, idx = clustertree.query(np.array([_coords[0,0:2]]), 5.0, eps = 0, n_jobs=1)
+        else:
+            dd, idx = clustertree.query(np.array([_coords[0,0:3]]), 5.0, eps = 0, n_jobs=1)
+        dd, idx = np.array(dd[0]), np.array(idx[0])
+        dd, idx = dd[(np.isfinite(dd)==True)], idx[(np.isfinite(dd)==True)]
+        neighbours = data[:, link.cluster_members[idx]]
+
+        # Calculate the velocity difference between the cluster and the
+        # neighbours. Establish how many standard deviations this is away from
+        # the mean velocity of the neighbours.
+        veldiffarr = np.abs(cluster.statistics[1][3]-neighbours[4,:])
+        if np.std(neighbours[4,:]) != 0.0:
+            v = np.mean(veldiffarr)/np.std(neighbours[4,:])
+        else:
+            v = 0.0
+
+        # If the cluster velocity is separated from its neighbour's velocity by
+        # more than 3 sigma then make a decision about whether or not to link
+        # these components.
+
+        if v > 3.0:
+            if np.mean(veldiffarr) < self.cluster_criteria[1]/2.:
+                keep.append(True)
+            else:
+                keep.append(False)
+        elif v == 0.0:
+            if np.mean(veldiffarr) < self.cluster_criteria[1]:
+                keep.append(True)
+            else:
+                keep.append(False)
+        else:
+            keep.append(True)
+
+    keep = np.array(keep, dtype=bool)
+    linked_clusters = np.array(linked_clusters)
+    linked_clusters = linked_clusters[(keep==1)]
+
+    return linked_clusters
+
+def check_other_components(self, index, current_idx, data_idx, data, _linked_clusters, _cluster, tree, n_jobs, re=False):
+    """
+    Just because something can be linked doesn't mean it should be. Here, we
+    check to see if any components extracted from the same pixel as the current
+    bud_cluster would be more suitably linked to the current linked_clusters. If
+    so, then we will remove these clusters.
+
+    """
+
+    # Get the properties of the cluster
+    if re == False:
+        _coords = np.array([self.unassigned_data[:,index]])
+    else:
+        _coords = np.array([self.unassigned_data_relax[:,index]])
+
+    # Firstly query the KDTree to find all data points within a distance = 0 of
+    # the current data point
+    if self.method <= 1:
+        idx = tree.query_ball_point(np.array([_coords[0,0:2]]), 0.0, eps = 0, n_jobs=n_jobs)
+    else:
+        idx = tree.query_ball_point(np.array([_coords[0,0:3]]), 0.0, eps = 0, n_jobs=n_jobs)
+    idx = np.array(idx[0])
+
+    # Generate "buc clusters" from the multiple velocity components
+    _clusters = [_cluster]
+    if np.size(idx) > 1:
+        idx_fullarray = current_idx
+        idx = idx[np.where(idx != idx_fullarray)]
+        for j in range(np.size(idx)):
+            _data_point = np.array(self.unassigned_data[:,idx[j]])
+            _data_idx = get_data_index(self, data, _data_point)
+            if not re:
+                _cluster_idx = idx[j]
+                _bud_cluster = Cluster(_data_point, _data_idx, idx=_cluster_idx, leodis=self)
+                _clusters.append(_bud_cluster)
+
+        # Calculate how closely related the clusters are to the linked clusterss
+        totvar = []
+        for link in _linked_clusters:
+            var = []
+            for _cluster in _clusters:
+                var = get_var(self, data, _cluster, link, var)
+            totvar.append(var)
+
+        # In theory, the cluster we are trying to link should be the closest
+        # match, but this might not always be the case. Where an alternative
+        # link would be better suited, remove the linked cluster from the
+        # list.
+        keepclusters = []
+        for i in range(len(_linked_clusters)):
+            keep = (totvar[i][:]==np.min(totvar[i][:]))
+            if keep[0]:
+                keepclusters.append(True)
+            else:
+                keepclusters.append(False)
+
+        keepclusters = np.array(keepclusters, dtype=bool)
+        _linked_clusters = np.array(_linked_clusters)
+        _linked_clusters = _linked_clusters[(keepclusters==1)]
+        _linked_clusters = list(_linked_clusters)
+
+    return _linked_clusters
 
 def find_linked_clusters_single_antecessor(self, data, cluster, linked_clusters):
     """
@@ -738,6 +896,7 @@ def find_linked_clusters_single_antecessor(self, data, cluster, linked_clusters)
                 var = []
                 for link in linked_clusters:
                     var = get_var(self, data, cluster, link, var)
+                # Keep the closest matching cluster
                 keepidx = np.squeeze(np.where(np.asarray(var) == min(np.asarray(var))))
                 if keepidx.size != 1:
                     keepidx = keepidx[0]
@@ -775,23 +934,10 @@ def find_linked_clusters_multiple_antecessors(self, data, cluster, linked_cluste
     # This will return lists within a list. Flatten this.
     linked_clusters = [item for sublist in _linked_clusters for item in sublist]
     # Now check to see if any of the linked clusters are bud clusters.
+
     linked_clusters = bud_check(self, data, cluster, linked_clusters)
 
     return linked_clusters
-
-def gen_clustlst(number_of_antecessors, linked_clusters, antecessors):
-    """
-    Returns a list of clusters
-    """
-    clustlst = []
-    for j in range(number_of_antecessors):
-        lst = []
-        for k in range(len(linked_clusters)):
-            if linked_clusters[k].antecessor == antecessors[j]:
-                lst.append(linked_clusters[k])
-        clustlst.append(lst)
-    lst = None
-    return clustlst
 
 def bud_check(self, data, cluster, linked_clusters):
     """
@@ -803,8 +949,7 @@ def bud_check(self, data, cluster, linked_clusters):
     When trying to slot clusters into the correct level of an already
     established hierarchy, bud clusters become a bit of an issue. Although we
     may get the cluster correct - any accompanying fledgling clusters could be
-    linked at the wrong level of the hierarchy (see resolve_ambiguity). This
-    method establishes:
+    linked at the wrong level of the hierarchy. This method establishes:
 
     1) if there are any bud clusters linked to the cluster
     2) and if there are, it checks that all data points within the bud clusters
@@ -837,8 +982,9 @@ def bud_check(self, data, cluster, linked_clusters):
             do_not_merge = check_components(self, data, linked_bud, linked_buds)
         else:
             do_not_merge = [False]
+
         if np.any(do_not_merge):
-            # If there are any cases multiple components - focus on a single
+            # If there are any cases of multiple components - focus on a single
             # bud only.
             linked_buds = [linked_bud]
         else:
@@ -916,56 +1062,27 @@ def remdup_preserve_order(lst):
     val_add = val.add
     return [x for x in lst if not (x in val or val_add(x))]
 
-def check_components(self, data, _cluster, _linked_clusters):
+def gen_clustlst(number_of_antecessors, linked_clusters, antecessors):
     """
-    Checks to see if a position in one cluster can be found in another cluster.
-
-    Notes
-    -----
-
-    Returns a boolean list of equivalent length to the number of linked clusters
-
-    If any of the list values are true - you don't want to merge those two
-    clusters.
-
+    Returns a list of clusters
     """
+    clustlst = []
+    for j in range(number_of_antecessors):
+        lst = []
+        for k in range(len(linked_clusters)):
+            if linked_clusters[k].antecessor == antecessors[j]:
+                lst.append(linked_clusters[k])
+        clustlst.append(lst)
+    lst = None
+    return clustlst
 
-    do_not_merge = []
-    clustercoords = data[0:2,_cluster.cluster_members]
-    _linked_clusters = [_link.antecessor for _link in _linked_clusters]
+#==============================================================================#
+# Check for multiple components
+#==============================================================================#
 
-    if _cluster.number_of_members > 50:
-        # This is faster for large numbers of cluster_members but slower when
-        # number_of_members is small.
-        for _link in _linked_clusters:
-            linkcoords = data[0:2,_link.cluster_members]
-            concatcoords = np.concatenate([linkcoords.T, clustercoords.T])
-            concatcoords = concatcoords.T
-            vals, idx, count = np.unique(concatcoords, return_index=True, return_counts=True, axis = 1)
-            idx_vals_repeated = np.where(count > 1)[0]
-            if np.size(idx_vals_repeated) > 0:
-                do_not_merge.append(True)
-            else:
-                do_not_merge.append(False)
-
-    else:
-        for _link in _linked_clusters:
-            boolval = []
-            for j in range(_cluster.number_of_members):
-                # Check all cluster components against those belonging to another cluster
-                multiple_components = (data[0,_cluster.cluster_members[j]] == data[0,_link.cluster_members]) & \
-                                      (data[1,_cluster.cluster_members[j]] == data[1,_link.cluster_members])
-                if np.any(multiple_components):
-                    boolval.append(True)
-                else:
-                    boolval.append(False)
-            if np.any(boolval):
-                do_not_merge.append(True)
-            else:
-                do_not_merge.append(False)
-            boolval = None
-
-    return do_not_merge
+# These routines are used if method=PPV. This is how multiple components
+# extracted from the same positions are prevented from being linked to the same
+# cluster.
 
 def multi_component_check(self, data, cluster, linked_clusters, re = False):
     """
@@ -1008,14 +1125,6 @@ def multi_component_check(self, data, cluster, linked_clusters, re = False):
         linked_clusters = [k for l, k in enumerate(linked_clusters) if l not in IDx_do_not_merge[0]]
 
     if len(linked_clusters) > 1:
-        var = []
-        for link in linked_clusters:
-            var = get_var(self, data, cluster, link, var)
-        # First - get rid of any clusters for which the data_point's properties
-        # sit > 3 sigma away from the mean.
-        linked_clusters, var = remove_outliers(self, linked_clusters, var)
-
-    if len(linked_clusters) > 1:
 
         pairs, do_not_merge = get_pairs(self, data, linked_clusters)
 
@@ -1026,8 +1135,9 @@ def multi_component_check(self, data, cluster, linked_clusters, re = False):
             if len(IDx_do_not_merge[0]) == 1:
 
                 var = []
-                for _cluster in linked_clusters:
+                for link in linked_clusters:
                     var = get_var(self, data, cluster, link, var)
+                # Keep the closest matching cluster
                 keepidx = np.squeeze(np.where(np.asarray(var) == min(np.asarray(var))))
                 if keepidx.size != 1:
                     keepidx = keepidx[0]
@@ -1047,6 +1157,7 @@ def multi_component_check(self, data, cluster, linked_clusters, re = False):
                                 var = []
                                 for link in pairs[j]:
                                     var = get_var(self, data, cluster, link, var)
+                                # Keep the closest matching cluster
                                 keepidx = np.squeeze(np.where(np.asarray(var) == min(np.asarray(var))))
                                 if keepidx.size != 1:
                                     keepidx = keepidx[0]
@@ -1062,6 +1173,58 @@ def multi_component_check(self, data, cluster, linked_clusters, re = False):
                 linked_clusters = keep_clusters
 
     return linked_clusters
+
+def check_components(self, data, _cluster, _linked_clusters):
+    """
+    Checks to see if a position in one cluster can be found in another cluster.
+
+    Notes
+    -----
+
+    Returns a boolean list of equivalent length to the number of linked clusters
+
+    If any of the list values are true - you don't want to merge those two
+    clusters.
+
+    """
+
+    do_not_merge = []
+    clustercoords = data[0:2,_cluster.cluster_members]
+    _linked_clusters = [_link.antecessor for _link in _linked_clusters]
+
+    if _cluster.number_of_members > 50:
+        # This is faster for large numbers of cluster_members but slower when
+        # number_of_members is small. A value of 50 is arbitrary but selected
+        # empirically.
+        for _link in _linked_clusters:
+            linkcoords = data[0:2,_link.cluster_members]
+            concatcoords = np.concatenate([linkcoords.T, clustercoords.T])
+            concatcoords = concatcoords.T
+            vals, idx, count = np.unique(concatcoords, return_index=True, return_counts=True, axis = 1)
+            idx_vals_repeated = np.where(count > 1)[0]
+            if np.size(idx_vals_repeated) > 0:
+                do_not_merge.append(True)
+            else:
+                do_not_merge.append(False)
+
+    else:
+        for _link in _linked_clusters:
+            boolval = []
+            for j in range(_cluster.number_of_members):
+                # Check all cluster components against those belonging to another cluster
+                multiple_components = (data[0,_cluster.cluster_members[j]] == data[0,_link.cluster_members]) & \
+                                      (data[1,_cluster.cluster_members[j]] == data[1,_link.cluster_members])
+                if np.any(multiple_components):
+                    boolval.append(True)
+                else:
+                    boolval.append(False)
+            if np.any(boolval):
+                do_not_merge.append(True)
+            else:
+                do_not_merge.append(False)
+            boolval = None
+
+    return do_not_merge
 
 def get_pairs(self, data, linked_clusters):
     """
@@ -1088,6 +1251,13 @@ def get_pairs(self, data, linked_clusters):
 
     return pairs, do_not_merge
 
+#==============================================================================#
+# Quality control
+#==============================================================================#
+
+# These routines are used for comparing the properties of the data point to
+# linked clusters - they are used to forge strong links.
+
 def get_var(self, data, cluster, link, var):
     """
     Return pooled sig difference between data point and all linked_clusters
@@ -1104,7 +1274,7 @@ def get_var(self, data, cluster, link, var):
     pooled_var = 0.0
     for j in range(4, len(data[:,0])):
         if link.statistics[j-3][4] != 0.0:
-            pooled_var += (abs(cluster.statistics[j-3][3]-link.statistics[j-3][2])/link.statistics[j-3][4])**2.
+            pooled_var += (abs(cluster.statistics[j-3][2]-link.statistics[j-3][2])/link.statistics[j-3][4])**2.
         else:
             pooled_var += 0.0
     pooled_var = np.sqrt(pooled_var)
@@ -1112,21 +1282,36 @@ def get_var(self, data, cluster, link, var):
 
     return var
 
-def remove_outliers(self, linked_clusters, var):
+def remove_outliers(self, data, cluster, linked_clusters, var, _cluster_sig_, _bud_sig_):
     """
     Check to see whether the properties of the cluster under consideration are
-    within 3 sigma of those of the linked_clusters
+    within n sigma of those of the linked_clusters
+
+    For buds be more lenient than for fully fledged clusters - controlled using
+    _cluster_sig_ and _bud_sig_.
 
     """
 
-    sig = 3.0
-    threesig = ( np.asarray(var) > sig )
-    remidx = np.squeeze(np.where(np.asarray(var) > sig ))
+    buds = find_linked_buds(self, linked_clusters, cluster)
+
+    linked_buds = []
+    if np.size(buds) == 0:
+        linked_buds = [False for link in linked_clusters]
+    else:
+        linked_buds = [[(link == bud) for bud in buds] for link in linked_clusters]
+        linked_buds = [np.any(val) for val in linked_buds]
+
+    remove = []
+    for i in range(len(linked_buds)):
+        if linked_buds[i]:
+            remove.append(( np.asarray(var[i]) > _bud_sig_ ))
+        else:
+            remove.append(( np.asarray(var[i]) > _cluster_sig_ ))
 
     keep_clusters = []
     keep_var = []
-    for j in range(len(threesig)):
-        if (threesig[j] == False):
+    for j in range(len(remove)):
+        if (remove[j] == False):
             keep_clusters.append(linked_clusters[j])
             keep_var.append(var[j])
 
@@ -1134,6 +1319,63 @@ def remove_outliers(self, linked_clusters, var):
     var = keep_var
 
     return linked_clusters, var
+
+#==============================================================================#
+# Finding buds
+#==============================================================================#
+
+# These codes are used to establish whether or not a cluster is still a bud.
+
+def find_linked_buds(self, linked_clusters, cluster):
+    """
+    Check whether or not the currently linked clusters satisfy the conditions to
+    be classified as a leaf cluster
+
+    """
+
+    # Find any buds
+    linked_buds = [check_cluster for check_cluster in linked_clusters \
+                   if check_cluster.leaf_cluster and check_cluster.antecedent is None
+                   and not independent_leaf_cluster(self, check_cluster, \
+                                            linked_clusters, cluster)]
+
+    return linked_buds
+
+def independent_leaf_cluster(self, check_cluster, linked_clusters, cluster):
+    """
+    Method to determine whether or not a leaf cluster can be classed as an
+    independent cluster
+
+    """
+
+    independence_check = [False, False, False]
+
+    # Check the number of members in the cluster
+    if check_cluster.number_of_members >= self.minnpix_cluster:
+        independence_check[0] = True
+
+    # Check to see if the peak of the cluster is at least min_height above the
+    # current data point
+    if ((check_cluster.statistics[0][1]-cluster.statistics[0][1]) >= self.min_height):
+        independence_check[1] = True
+
+    sep = []
+    sep = [np.linalg.norm(check_cluster.peak_location-linked_cluster.peak_location) \
+           for linked_cluster in linked_clusters]
+    idx_too_close = np.squeeze(np.where(np.asarray(np.asarray(sep) == 0.0) == True))
+    sep = [k for l, k in enumerate(sep) if l not in idx_too_close]
+
+    if (all(np.asarray(sep) >= self.min_sep) is True):
+        independence_check[2] = True
+
+    # Are all conditions satisfied?
+    independence_check = all(independence_check)
+
+    return independence_check
+
+#==============================================================================#
+# Cluster growth
+#==============================================================================#
 
 def add_to_cluster_dictionary(self, cluster):
     """
@@ -1209,6 +1451,8 @@ def resolve_ambiguity(self, data, linked_clusters, cluster, re = False):
 
     return
 
+# Here we update the clustering information
+
 def update_leodis_array(self, cluster, value):
     """
     Updates the leodis_arr.
@@ -1218,6 +1462,10 @@ def update_leodis_array(self, cluster, value):
         self.leodis_arr[1, cluster.cluster_indices[j]] = int(value)
 
     return
+
+#==============================================================================#
+# branching
+#==============================================================================#
 
 def branching(self, data, linked_clusters, cluster, re = False):
     """
@@ -1240,6 +1488,7 @@ def branching(self, data, linked_clusters, cluster, re = False):
         var = []
         for link in _linked_clusters:
             var = get_var(self, data, cluster, link, var)
+        # Keep the closest matching cluster
         keepidx = np.squeeze(np.where(np.asarray(var) == min(np.asarray(var))))
         if keepidx.size != 1:
             keepidx = keepidx[0]
@@ -1411,96 +1660,148 @@ def correct_branching(self, data, rembranch, cluster):
 
     return
 
-def find_linked_buds(self, linked_clusters, cluster):
+#==============================================================================#
+# Relax
+#==============================================================================#
+
+def get_relaxed_cluster_criteria(relax, cluster_criteria_original_):
     """
-    Check whether or not the currently linked clusters satisfy the conditions to
-    be classified as a leaf cluster
-
-    """
-
-    # Find any buds
-    linked_buds = [check_cluster for check_cluster in linked_clusters \
-                   if check_cluster.leaf_cluster and check_cluster.antecedent is None
-                   and not independent_leaf_cluster(self, check_cluster, \
-                                            linked_clusters, cluster)]
-
-    return linked_buds
-
-def independent_leaf_cluster(self, check_cluster, linked_clusters, cluster):
-    """
-    Method to determine whether or not a leaf cluster can be classed as an
-    independent cluster
+    Create new clustering criteria.
 
     """
 
-    independence_check = [False, False, False]
-
-    # Check the number of members in the cluster
-    if check_cluster.number_of_members >= self.minnpix_cluster:
-        independence_check[0] = True
-
-    # Check to see if the peak of the cluster is at least min_height above the
-    # current data point
-    if ((check_cluster.statistics[0][1]-cluster.statistics[0][1]) >= self.min_height):
-        independence_check[1] = True
-
-    sep = []
-    sep = [np.linalg.norm(check_cluster.peak_location-linked_cluster.peak_location) \
-           for linked_cluster in linked_clusters]
-    idx_too_close = np.squeeze(np.where(np.asarray(np.asarray(sep) == 0.0) == True))
-    sep = [k for l, k in enumerate(sep) if l not in idx_too_close]
-
-    if (all(np.asarray(sep) >= self.min_sep) is True):
-        independence_check[2] = True
-
-    # Are all conditions satisfied?
-    independence_check = all(independence_check)
-
-    return independence_check
-
-def get_current_index(self, index):
-    """
-    Returns the index of the current data point from the original unassigned
-    array
-    """
-
-    if self.method == 1:
-        current_idx = np.where((self.unassigned_data[0,:]==self.unassigned_data_relax[0,index]) & \
-                               (self.unassigned_data[1,:]==self.unassigned_data_relax[1,index]) & \
-                               (self.unassigned_data[2,:]==self.unassigned_data_relax[2,index]) & \
-                               (self.unassigned_data[3,:]==self.unassigned_data_relax[3,index]) & \
-                               (self.unassigned_data[4,:]==self.unassigned_data_relax[4,index]))
+    cluster_criteria_ = None
+    cluster_criteria_relax_ = None
+    # Get new clustering criteria
+    if np.size(relax) == 1:
+        cluster_criteria_relax_ = cluster_criteria_original_+(cluster_criteria_original_*relax)
+        cluster_criteria_ = cluster_criteria_relax_
     else:
-        current_idx = np.where((self.unassigned_data[0,:]==self.unassigned_data_relax[0,index]) & \
-                               (self.unassigned_data[1,:]==self.unassigned_data_relax[1,index]) & \
-                               (self.unassigned_data[2,:]==self.unassigned_data_relax[2,index]) & \
-                               (self.unassigned_data[3,:]==self.unassigned_data_relax[3,index]))
+        cluster_criteria_relax_ = np.zeros(np.size(relax))
+        for j in range(np.size(relax)):
+            cluster_criteria_relax_[j] = cluster_criteria_original_[j]+(cluster_criteria_original_[j]*relax[j])
+        cluster_criteria_ = cluster_criteria_relax_
 
-    current_idx = current_idx[0][0]
+    return cluster_criteria_
 
-    return current_idx
-
-def get_data_index(self, data, data_point):
+def relax_steps(self, step, data, method, verbose, tree, n_jobs, second_pass = False, plot=False):
     """
-    Returns the index of the current data point from the original unassigned
-    array
+    Main steps taken when the linking criteria are relaxed
+
     """
 
-    if self.method == 1:
-        idx = np.where((data[0,:]==data_point[0]) & \
-                       (data[1,:]==data_point[1]) & \
-                       (data[2,:]==data_point[2]) & \
-                       (data[3,:]==data_point[3]) & \
-                       (data[4,:]==data_point[4]))
+    self.unassigned_data_relax = self.unassigned_data_updated
+    relax_method(self, step, data, method, verbose, tree, n_jobs, second_pass=second_pass)
+    cluster_list, cluster_indices = update_clusters(self, data)
+    self.unassigned_data_relax = self.unassigned_data_updated
+
+    return cluster_list, cluster_indices
+
+
+def relax_method(self, step, data, method, verbose, tree, n_jobs, second_pass = False):
+    """
+
+    Notes
+    -----
+
+    At this stage the main hierarchy has been established. If
+    the 'relax' key word has been implemented by the user - the
+    linking constraints will be relaxed and leodis will make a
+    second pass at linking some of the remaining unassigned data.
+
+    """
+
+    unassigned_array_length = len(self.unassigned_data_relax[0,:])
+
+    count=0.0
+    if verbose and second_pass:
+        progress_bar = print_to_terminal(self, step, data, count, \
+                                         unassigned_array_length,\
+                                         method, re=False, second_pass=second_pass)
     else:
-        idx = np.where((data[0,:]==data_point[0]) & \
-                       (data[1,:]==data_point[1]) & \
-                       (data[2,:]==data_point[2]) & \
-                       (data[3,:]==data_point[3]))
+        progress_bar = print_to_terminal(self, step, data, count, \
+                                         unassigned_array_length,\
+                                         method, re=True, second_pass=second_pass)
 
-    idx = idx[0][0]
+    # Now run the linking again with the relaxed constraints
+    for i in range(0, unassigned_array_length):
 
-    return idx
+        if verbose and (count % 1 == 0):
+            progress_bar + 1
+            progress_bar.show_progress()
+
+        # Extract the current data point
+        data_point = np.array(self.unassigned_data_relax[:,i])
+        # Retrieve this data point's location in the data array
+        data_idx = get_data_index(self, data, data_point)
+
+        current_idx = get_current_index(self, i)
+
+        # Every data point starts as a new cluster
+        self.cluster_idx = current_idx
+        bud_cluster = Cluster(data_point, data_idx, idx=self.cluster_idx, leodis=self)
+
+        # Calculate distances between all data points
+        link = get_links(self, i, current_idx, tree, n_jobs, re=True)
+
+        # Find clusters that are closely associated with the current
+        # data point
+        linked_clusters = find_linked_clusters(self, data, i, bud_cluster, link, re = True)
+
+        if len(linked_clusters) >= 1:
+            linked_clusters = check_other_components(self, i, current_idx, data_idx, data, linked_clusters, bud_cluster, tree, n_jobs, re=False)
+
+        if not linked_clusters:
+            add_to_cluster_dictionary(self, bud_cluster)
+        elif len(linked_clusters) == 1:
+            merge_into_cluster(self, data, linked_clusters[0], bud_cluster, re = True)
+        else:
+            resolve_ambiguity(self, data, linked_clusters, bud_cluster, re = True)
+
+    if verbose:
+        progress_bar.progress = 100  # Done
+        progress_bar.show_progress()
+        print('')
+        print('')
+
+    return
+
+#==============================================================================#
+# Generate the forest and clean clustering
+#==============================================================================#
+
+def get_forest(self, verbose):
+
+    _antecessors = []
+    for key, cluster in self.clusters.items():
+        if cluster.leaf_cluster == True:
+            _antecessors.append(cluster.antecessor)
+    _antecessors = remdup_preserve_order(_antecessors)
+    _antecessors = sorted(_antecessors, key=get_cluster_idx, reverse=True)
+
+    _tree_idx = 0
+
+    print('Generating forest...')
+    print('')
+    count= 0.0
+    if verbose:
+        progress_bar = progress_bar = AnimatedProgressBar(end=len(_antecessors), width=50, \
+                                           fill='=', blank='.')
+    for antecessor in _antecessors:
+        if verbose and (count % 1 == 0):
+            progress_bar + 1
+            progress_bar.show_progress()
+        tree = Tree(antecessor, idx = _tree_idx, leodis=self)
+        self.forest[_tree_idx] = tree
+        _tree_idx += 1
+
+    if verbose:
+        progress_bar.progress = 100  # Done
+        progress_bar.show_progress()
+        print('')
+        print('')
+
+    return
 
 def update_clusters(self, data):
     """
@@ -1542,59 +1843,6 @@ def update_clusters(self, data):
 
     return cluster_list, cluster_indices
 
-def get_relaxed_cluster_criteria(relax, cluster_criteria_original_):
-    """
-    Create new clustering criteria.
-
-    """
-
-    cluster_criteria_ = None
-    cluster_criteria_relax_ = None
-    # Get new clustering criteria
-    if np.size(relax) == 1:
-        cluster_criteria_relax_ = cluster_criteria_original_+(cluster_criteria_original_*relax)
-        cluster_criteria_ = cluster_criteria_relax_
-    else:
-        cluster_criteria_relax_ = np.zeros(np.size(relax))
-        for j in range(np.size(relax)):
-            cluster_criteria_relax_[j] = cluster_criteria_original_[j]+(cluster_criteria_original_[j]*relax[j])
-        cluster_criteria_ = cluster_criteria_relax_
-
-    return cluster_criteria_
-
-def get_forest(self, verbose):
-
-    _antecessors = []
-    for key, cluster in self.clusters.items():
-        if cluster.leaf_cluster == True:
-            _antecessors.append(cluster.antecessor)
-    _antecessors = remdup_preserve_order(_antecessors)
-    _antecessors = sorted(_antecessors, key=get_cluster_idx, reverse=True)
-
-    _tree_idx = 0
-
-    print('Generating forest...')
-    print('')
-    count= 0.0
-    if verbose:
-        progress_bar = progress_bar = AnimatedProgressBar(end=len(_antecessors), width=50, \
-                                           fill='=', blank='.')
-    for antecessor in _antecessors:
-        if verbose and (count % 1 == 0):
-            progress_bar + 1
-            progress_bar.show_progress()
-        tree = Tree(antecessor, idx = _tree_idx, leodis=self)
-        self.forest[_tree_idx] = tree
-        _tree_idx += 1
-
-    if verbose:
-        progress_bar.progress = 100  # Done
-        progress_bar.show_progress()
-        print('')
-        print('')
-
-    return
-
 def num_links(self):
     """
     Returns the total number of data points that have been assigned to clusters
@@ -1606,7 +1854,11 @@ def num_links(self):
             count+=numberofmembers
     return count
 
-def print_to_terminal(self, data, count, unassigned_array_length, method, re=False, second_pass=False):
+#==============================================================================#
+# Verbose == True
+#==============================================================================#
+
+def print_to_terminal(self, step, data, count, unassigned_array_length, method, re=False, second_pass=False):
     """
     Prints some information to the terminal if verbose == True
     """
@@ -1650,15 +1902,17 @@ def print_to_terminal(self, data, count, unassigned_array_length, method, re=Fal
                                            fill='=', blank='.')
 
     elif (re==True) and (second_pass==False):
-        relaxval = (100 * self.relax)
+        inc = self.relax/self.nsteps
+
+        relaxval = (100 * inc*step)
         if np.size(self.relax) == 1:
-            print("Relaxing the linking constraints by {}%...".format(int(relaxval)))
+            print("Relaxing the linking constraint by {}%...".format(int(relaxval)))
             print('')
             print('Secondary clustering...')
             print('')
         else:
-            for j in range(np.size(self.relax)):
-                print("Relaxing linking constraint {} by {}%...".format(j+1, int(relaxval[j])))
+            for k in range(np.size(self.relax)):
+                print("Relaxing linking constraint {} by {}%...".format(k+1, int(relaxval[k])))
             print('')
             print('Secondary clustering...')
             print('')
