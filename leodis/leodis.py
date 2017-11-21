@@ -17,7 +17,6 @@ from . import leodis_plots
 from .progressbar import AnimatedProgressBar
 from scipy.spatial import distance
 from scipy.spatial import cKDTree
-from scipy import stats
 from .cluster_definition import Cluster
 from .cluster_definition import merge_clusters
 from .cluster_definition import merge_data
@@ -190,7 +189,7 @@ class Leodis(object):
             # point
             linked_clusters = find_linked_clusters(self, data, i, bud_cluster, link)
 
-            if len(linked_clusters) >= 1:
+            if (self.method==1) & (len(linked_clusters) >= 1):
                 linked_clusters = check_other_components(self, i, i, data_idx, data, linked_clusters, bud_cluster, tree, n_jobs, re=False)
 
             """
@@ -257,7 +256,6 @@ class Leodis(object):
 
         # Take a second pass at the data without relaxing the linking criteria
         # to pick up any remaining stragglers not linked during the first pass
-
         if (np.size(self.unassigned_data_updated)>1):
             cluster_list, cluster_indices = relax_steps(self, 0, data, method, verbose, tree, n_jobs, second_pass=True)
         endhierarchy = time.time()-starthierarchy
@@ -701,6 +699,8 @@ def local_links(self, index, data, cluster, linked_clusters, re=False):
             _coords = np.array([_coords[0,0:2]])
             coordinates = data[0:2,link.cluster_members]
 
+        # Calculate the separation between the data point and the cluster
+        # members, then select the five closest for comparison
         sep = distance.cdist(_coords, coordinates.T, 'euclidean')
         sep = np.squeeze(sep)
         if np.size(sep) > 1:
@@ -714,7 +714,7 @@ def local_links(self, index, data, cluster, linked_clusters, re=False):
 
         # Calculate the velocity difference between the cluster and the
         # neighbours. Establish how many standard deviations this is away from
-        # the mean velocity of the neighbours.
+        # the mean velocity of the neighbours
         veldiffarr = np.abs(cluster.statistics[1][3]-neighbours[4,:])
         if np.std(neighbours[4,:]) != 0.0:
             v = np.mean(veldiffarr)/np.std(neighbours[4,:])
@@ -807,7 +807,6 @@ def check_other_components(self, index, current_idx, data_idx, data, _linked_clu
     # Finally if multiple linked clusters are identified, we want to establish
     # if they are suitable to branch. This does not apply to bud clusters so
     # first establish if the linked clusters are indeed buds.
-
     _linked_clusters_ = [_lc for _lc in _linked_clusters]
     _linked_buds = find_linked_buds(self, _linked_clusters_, _cluster)
 
@@ -1781,7 +1780,7 @@ def relax_method(self, step, data, method, verbose, tree, n_jobs, second_pass = 
         # data point
         linked_clusters = find_linked_clusters(self, data, i, bud_cluster, link, re = True)
 
-        if len(linked_clusters) >= 1:
+        if (self.method==1) & (len(linked_clusters) >= 1):
             linked_clusters = check_other_components(self, i, current_idx, data_idx, data, linked_clusters, bud_cluster, tree, n_jobs, re=False)
 
         if not linked_clusters:
@@ -1904,10 +1903,10 @@ def print_to_terminal(self, step, data, count, unassigned_array_length, method, 
         print("leodis will look for clusters within {}% of the data: ".format((100 * unassigned_array_length / data[0,:].size)))
         print('')
         print("Method = {}".format(method))
-        print("Max. Euclidean distance between linked data = {}".format(np.around(self.max_dist, decimals = 2)))
+        print("Max. Euclidean distance between linked data = %10.5f" % self.max_dist)
         print("Min. # of data points in a cluster = {}".format(np.around(self.minnpix_cluster, decimals = 0)))
         print("Min. height above the merge level = {}".format(np.around(self.min_height, decimals = 2)))
-        print("Min. separation between clusters = {}".format(np.around(self.min_sep, decimals = 2)))
+        print("Min. separation between clusters = %10.5f" % self.min_sep)
 
         if self.method == 0:
             if len(self.cluster_criteria) != 1:
