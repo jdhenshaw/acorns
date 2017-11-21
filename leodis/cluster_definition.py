@@ -48,11 +48,13 @@ class Cluster(object):
         self._peak_location = np.array([data_point[0],data_point[1]])
         # Set up a dictionary of important information. See statistics below
         self._statistics = {}
-        self._statistics[0] = [data_point[2],data_point[2],data_point[2],data_point[2],data_point[2]]
+        #self._statistics[0] = [data_point[2],data_point[2],data_point[2],data_point[2],data_point[2]]
+        self._statistics[0] = [data_point[2],data_point[2],data_point[2],data_point[2],0.0]
 
         # Add remaining attributes to stats dict
         for j in range(4, len(data_point)):
-            self._statistics[j-3] = [data_point[j],data_point[j],data_point[j],data_point[j],data_point[j]]
+            #self._statistics[j-3] = [data_point[j],data_point[j],data_point[j],data_point[j],data_point[j]]
+            self._statistics[j-3] = [data_point[j],data_point[j],data_point[j],data_point[j],0.0]
 
 
     @property
