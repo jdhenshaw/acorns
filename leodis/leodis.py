@@ -14,10 +14,10 @@ import sys
 import time
 from . import leodis_io
 from . import leodis_plots
-from .establishing_links import *
 from .progressbar import AnimatedProgressBar
 from scipy.spatial import distance
 from scipy.spatial import cKDTree
+from scipy import stats
 from .cluster_definition import Cluster
 from .cluster_definition import merge_clusters
 from .cluster_definition import merge_data
@@ -633,7 +633,7 @@ def find_linked_clusters(self, data, index, cluster, linked_indices, re = False)
                 var = []
                 for link in linked_clusters:
                     var = get_var(self, data, cluster, link, var)
-                linked_clusters, var = remove_outliers(self, data, cluster, linked_clusters, var, 5., 7.)
+                linked_clusters, var = remove_outliers(self, data, cluster, linked_clusters, var, 3., 5.)
 
         else:
             # Relax phase
@@ -681,11 +681,6 @@ def local_links(self, index, data, cluster, linked_clusters, re=False):
     Return all linked clusters whose nearest neighbours to the current cluster
     are closely matched.
 
-    NOTE:
-
-    This slows things down a bit due to having to generate the kdtree for the
-    linked cluster. I'm sure there could be a faster way to do this...
-
     """
 
     # Get the properties of the cluster
@@ -700,21 +695,21 @@ def local_links(self, index, data, cluster, linked_clusters, re=False):
     for link in linked_clusters:
 
         if self.method==2:
+            _coords = np.array([_coords[0,0:3]])
             coordinates = data[0:3,link.cluster_members]
         else:
+            _coords = np.array([_coords[0,0:2]])
             coordinates = data[0:2,link.cluster_members]
 
-        # Generate a cluster tree from the coordinates of the linked cluster
-        # This is where we are slowing down...
-        clustertree = cKDTree(coordinates.T)
-
-        # Get the 5 nearest neighbours belonging to the linked cluster
-        if self.method <= 1:
-            dd, idx = clustertree.query(np.array([_coords[0,0:2]]), 5.0, eps = 0, n_jobs=1)
+        sep = distance.cdist(_coords, coordinates.T, 'euclidean')
+        sep = np.squeeze(sep)
+        if np.size(sep) > 1:
+            sortidx = np.argsort(sep)
+            sortedsep = sep[sortidx]
+            dd, idx = sortedsep[0:5], sortidx[0:5]
         else:
-            dd, idx = clustertree.query(np.array([_coords[0,0:3]]), 5.0, eps = 0, n_jobs=1)
-        dd, idx = np.array(dd[0]), np.array(idx[0])
-        dd, idx = dd[(np.isfinite(dd)==True)], idx[(np.isfinite(dd)==True)]
+            idx_ = np.array(0)
+            dd, idx = [sep.tolist()], [idx_.tolist()]
         neighbours = data[:, link.cluster_members[idx]]
 
         # Calculate the velocity difference between the cluster and the
@@ -729,7 +724,6 @@ def local_links(self, index, data, cluster, linked_clusters, re=False):
         # If the cluster velocity is separated from its neighbour's velocity by
         # more than 3 sigma then make a decision about whether or not to link
         # these components.
-
         if v > 3.0:
             if np.mean(veldiffarr) < self.cluster_criteria[1]/2.:
                 keep.append(True)
@@ -772,7 +766,7 @@ def check_other_components(self, index, current_idx, data_idx, data, _linked_clu
         idx = tree.query_ball_point(np.array([_coords[0,0:3]]), 0.0, eps = 0, n_jobs=n_jobs)
     idx = np.array(idx[0])
 
-    # Generate "buc clusters" from the multiple velocity components
+    # Generate "bud clusters" from the multiple velocity components
     _clusters = [_cluster]
     if np.size(idx) > 1:
         idx_fullarray = current_idx
@@ -785,12 +779,12 @@ def check_other_components(self, index, current_idx, data_idx, data, _linked_clu
                 _bud_cluster = Cluster(_data_point, _data_idx, idx=_cluster_idx, leodis=self)
                 _clusters.append(_bud_cluster)
 
-        # Calculate how closely related the clusters are to the linked clusterss
+        # Calculate how closely related the clusters are to the linked clusters
         totvar = []
         for link in _linked_clusters:
             var = []
-            for _cluster in _clusters:
-                var = get_var(self, data, _cluster, link, var)
+            for _cluster_ in _clusters:
+                var = get_var(self, data, _cluster_, link, var)
             totvar.append(var)
 
         # In theory, the cluster we are trying to link should be the closest
@@ -804,6 +798,45 @@ def check_other_components(self, index, current_idx, data_idx, data, _linked_clu
                 keepclusters.append(True)
             else:
                 keepclusters.append(False)
+
+        keepclusters = np.array(keepclusters, dtype=bool)
+        _linked_clusters = np.array(_linked_clusters)
+        _linked_clusters = _linked_clusters[(keepclusters==1)]
+        _linked_clusters = list(_linked_clusters)
+
+    # Finally if multiple linked clusters are identified, we want to establish
+    # if they are suitable to branch. This does not apply to bud clusters so
+    # first establish if the linked clusters are indeed buds.
+
+    _linked_clusters_ = [_lc for _lc in _linked_clusters]
+    _linked_buds = find_linked_buds(self, _linked_clusters_, _cluster)
+
+    # Remove buds from linked clusters.
+    for bud_cluster in _linked_buds:
+        _linked_clusters_.remove(bud_cluster)
+
+    if np.size(_linked_clusters_) > 1:
+        pairs = [pair for pair in itertools.combinations(_linked_clusters_, r=2)]
+        do_not_merge = [False for pair in itertools.combinations(_linked_clusters, r=2)]
+        paircount = 0
+        keepclusters = [True for link in _linked_clusters]
+        for pair in itertools.combinations(_linked_clusters, r=2):
+            cluster1 = pair[0]
+            cluster2 = pair[1]
+
+            vel_diff = np.abs(cluster1.statistics[1][2]-cluster2.statistics[1][2])
+            stddev = np.mean([cluster1.statistics[1][4], cluster2.statistics[1][4]])
+
+            if vel_diff > 2.0*self.cluster_criteria[1]:
+                if vel_diff/stddev > 3.:
+                    var = []
+                    for link in pair:
+                        var = get_var(self, data, _cluster, link, var)
+                        remidx = np.squeeze(np.where(np.asarray(var) == max(np.asarray(var))))
+                    if remidx.size != 1:
+                        remidx = remidx[0]
+                    idx = np.squeeze(np.where(np.asarray(_linked_clusters)==pair[remidx]))
+                    keepclusters[idx] = False
 
         keepclusters = np.array(keepclusters, dtype=bool)
         _linked_clusters = np.array(_linked_clusters)

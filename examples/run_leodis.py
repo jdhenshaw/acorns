@@ -38,7 +38,7 @@ dv_link = 0.28 # If you would also like to link using the LW as an additional cr
 # Generate the cluster_criteria
 cluster_criteria = np.array([min_radius, velo_link, dv_link])
 # Relax criterias
-relax = np.array([1.5,0.5,0.5]) # for interactive set to 0.0 and set interactive = True when calling leodis
+relax = np.array([1.5,1.0,0.5]) # for interactive set to 0.0 and set interactive = True when calling leodis
 # Stopping criteria
 stop = 3.
 # number of cores used in finding nearest neighbouts. all = -1
