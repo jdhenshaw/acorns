@@ -14,8 +14,8 @@ datafilename =  datadirectory+'fits_final_pdbi.dat'
 dataarr    = np.loadtxt(datafilename)
 # Data is organised as follows: x, y, peak intensity, error on peak intensity,
 # velocity, FWHM linewidth, rms noise
-dataarr = np.array([dataarr[:,0],dataarr[:,1],dataarr[:,2],dataarr[:,3], dataarr[:,4], dataarr[:,6], dataarr[:,8]])
-dataarr_leodis = np.array([dataarr[0,:],dataarr[1,:],dataarr[2,:],dataarr[3,:], dataarr[4,:], dataarr[5,:]])
+dataarr = np.array(dataarr[:,np.array([0,1,2,3,4,6,8])]).T
+dataarr_leodis = np.array(dataarr[np.array([0,1,2,3,4,5]),:])
 
 # The input to leodis therefore should be x,y,i,sig_i,vel
 

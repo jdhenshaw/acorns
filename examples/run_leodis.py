@@ -1,13 +1,7 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from leodis import Leodis
-from matplotlib.pyplot import cm
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import colors
 import sys
 import os
-import numpy as np
-import sys
 
 """
 Example of how to generate the input to leodis, run the code, and save the
