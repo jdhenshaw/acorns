@@ -52,3 +52,5 @@ Citing ``acorns``
 
 If you make use of this package in a publication, please consider the following
 acknowledgement
+
+**This publication made use of acorns, a Python package used to link PPV data**
