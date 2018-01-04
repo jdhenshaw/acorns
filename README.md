@@ -2,9 +2,7 @@
 <img src="docs/source/ACORNS_LOGO.jpg"  alt="" width = "450" />
 </p>
 
-## Agglomerative Clustering for ORganising Nested Structures
-
-Copyright (c) 2017 Jonathan D. Henshaw
+<center> <h1>Agglomerative Clustering for ORganising Nested Structures</h1> </center>
 
 About
 =====
