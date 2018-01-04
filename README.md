@@ -1,10 +1,10 @@
+<p align="center">
+<img src="docs/source/ACORNS_LOGO.jpg"  alt="" width = "500" />
+</p>
+
 # ``acorns`` Agglomerative Clustering for ORganising Nested Structures
 
 Copyright (c) 2017 Jonathan D. Henshaw
-
-<p align="center">
-<img src="docs/source/ACORNS_LOGO.jpg"  alt="" width = "300" />
-</p>
 
 About
 =====
