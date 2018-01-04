@@ -23,7 +23,7 @@ This is how you install ``acorns``.
 Developer version
 -----------------
 
-If you want to install the latest developer version of the dendrogram code, you
+If you want to install the latest developer version of the code, you
 can do so from the git repository::
 
     git clone https://github.com/jdhenshaw/acorns
@@ -38,7 +38,7 @@ Reporting issues and getting help
 
 Please help to improve this package by reporting issues via [GitHub]
 (https://github.com/jdhenshaw/acorns/issues). Alternatively, you can get in
-touch at acorns@gmail.com
+touch at [...]
 
 Developers
 ==========
