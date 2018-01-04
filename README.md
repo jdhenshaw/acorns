@@ -2,10 +2,10 @@
 <img src="docs/source/ACORNS_LOGO.jpg"  alt="" width = "450" />
 </p>
 
-<center> <h1>Agglomerative Clustering for ORganising Nested Structures</h1> </center>
-
 About
 =====
+
+Agglomerative Clustering for ORganising Nested Structures
 
 Installing ``acorns``
 =======================
