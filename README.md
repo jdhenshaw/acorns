@@ -1,5 +1,5 @@
 <p align="center">
-<img src="docs/source/ACORNS_LOGO.jpg"  alt="" width = "500" />
+<img src="docs/source/ACORNS_LOGO.jpg"  alt="" width = "450" />
 </p>
 
 # ``acorns`` Agglomerative Clustering for ORganising Nested Structures
