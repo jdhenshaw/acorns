@@ -534,7 +534,7 @@ def argsort(data, reversed=False):
 
     Notes
     -----
-    Sorting in Python 2. and Python 3. can differe in cases where you have
+    Sorting in Python 2. and Python 3. can differ in cases where you have
     identical values. This can lead to (very slight) changes in the clustering.
     This doesn't change the overall result, but use this code to force the same
     ordering for consistency.
@@ -679,7 +679,7 @@ def find_linked_clusters(self, data, index, cluster, linked_indices, re = False)
                 var = []
                 for link in linked_clusters:
                     var = get_var(self, data, cluster, link, var)
-                linked_clusters, var = remove_outliers(self, data, cluster, linked_clusters, var, 3., 5.)
+                linked_clusters, var = remove_outliers(self, data, cluster, linked_clusters, var, 5., 7.)
 
         else:
             # Relax phase
@@ -697,7 +697,7 @@ def find_linked_clusters(self, data, index, cluster, linked_indices, re = False)
                 var = []
                 for link in linked_clusters:
                     var = get_var(self, data, cluster, link, var)
-                linked_clusters, var = remove_outliers(self, data, cluster, linked_clusters, var, 3., 5.)
+                linked_clusters, var = remove_outliers(self, data, cluster, linked_clusters, var, 5., 7.)
 
                 # Now identify where the data point can be slotted into an already
                 # established hierarchy

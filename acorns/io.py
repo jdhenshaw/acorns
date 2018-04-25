@@ -16,7 +16,7 @@ if sys.version_info.major >= 3:
     proto=3
 else:
     proto=2
-    
+
 sys.setrecursionlimit(20000)
 
 def reshape_cluster_array(self, data):
