@@ -50,7 +50,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'acorns'
-copyright = u'2017, Jonathan D. Henshaw'
+copyright = u'2017-2018, Jonathan D. Henshaw'
 author = u'Jonathan D. Henshaw'
 
 # The version info for the project you're documenting, acts as replacement for

@@ -25,17 +25,18 @@ data = np.squeeze(data)
 
 rmsnoise = 7.e-5
 
-dataarr = np.zeros((4,len(data[1,:])*len(data[:,0])))
-noisearr = rmsnoise*np.ones(len(data[1,:])*len(data[:,0]))
+# Create the acorns table
+x = np.arange(np.size(data[0,:]))
+y = np.arange(np.size(data[:,0]))
+xx,yy = np.meshgrid(x,y)
+# Flatten 2D arrays
+xx = xx.flatten(order='F')
+yy = yy.flatten(order='F')
+data = data.flatten(order='F')
+noisearr = np.ones(len(xx))*rmsnoise
 
-for i in range(len(data[1,:])):
-    for j in range(len(data[:,0])):
-        dataarr[0,j+i*len(data[:,0])]=i
-        dataarr[1,j+i*len(data[:,0])]=j
-        dataarr[2,j+i*len(data[:,0])]=data[j,i]
-        dataarr[3,j+i*len(data[:,0])]=noisearr[j+i*len(data[:,0])]
+dataarr_acorns = np.array([xx,yy,data,noisearr])
 
-dataarr_acorns = dataarr
 # Basic information required for clustering
 pixel_size = 1.0
 min_radius = 3.3848/2. # Ensures 9 pixels defines the smallest structure identified
