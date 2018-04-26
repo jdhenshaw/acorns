@@ -13,20 +13,31 @@ Installing ``acorns``
 Requirements
 ------------
 
-This is what ``acorns`` requires.
+* [Python](http://www.python.org>) 2.6 or later (Python 3.x is supported)
+* [Numpy](http://www.numpy.org) 1.13.3 or later
+* [Scipy](http://www.scipy.org/) 1.0.1 or later
+* [Matplotlib](http://matplotlib.org/) 2.2.2 or later
+* [Astropy](http://www.astropy.org>) 3.0.2 or later
 
 Installation
 ------------
 
-This is how you install ``acorns``.
+To install the latest stable release, you can type::
+
+    pip install acorns
+
+or you can download the latest tar file from
+[PyPI](https://pypi.python.org/pypi/acorns) and install it using::
+
+    python setup.py install
 
 Developer version
 -----------------
 
-If you want to install the latest developer version of the code, you
-can do so from the git repository::
+If you want to install the latest developer version , you
+can do so using github::
 
-    git clone https://github.com/jdhenshaw/acorns
+    git clone https://github.com/jdhenshaw/acorns.git
     cd acorns
     python setup.py install
 
@@ -46,6 +57,11 @@ Developers
 This package was developed by:
 
 * Jonathan Henshaw
+
+Contributors include:
+
+* Vlas Sokolov
+* Adam Ginsburg
 
 Citing ``acorns``
 ===================
