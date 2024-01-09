@@ -2,7 +2,10 @@ from acorns import Acorns
 
 datadir='./'
 outputdir='./'
-filename='fits_final_pdbi.dat' # note we remove the fits extension
+filename='fits_final_pdbi.dat' 
 
-config_file=Acorns.run_setup(filename, datadir, outputdir=outputdir)
-acorn=Acorns.process(config_file)
+acorn=Acorns.run_setup(filename, datadir, outputdir=outputdir)
+acorn=Acorns.initialize(acorn)
+
+print(acorn.cluster_config.cluster_method)
+#acorn=Acorns.process(config_file)

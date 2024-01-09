@@ -26,29 +26,13 @@ except NameError:
     pass
 
 class Acorns(object):
-    def __init__(self, config=''):
-        self.config=config
-        self.datadirectory=None
-        self.filename=None
-        self.filename_noext=None
-        self.outputdirectory=None
-        self.method=None
-        self.spatial=None
-        self.features=None
-        self.metric=None
-        self.sort=None
-        self.min_npix=None
-        self.min_height=None
-        self.stop=None
-        self.stop_value=None
-        self.verbose=None
-        self.autosave=None
-        self.njobs=3
+    def __init__(self):
+        self.config=None
+        self.cluster_config=None
         self.clusters={}
         self.forest={}
 
-    def run_setup(filename, datadirectory, outputdir=None, acorn=None,
-                  description=True, verbose=True):
+    def run_setup(filename, datadirectory, outputdir=None, verbose=True):
         """
         Generates an acorns configuration file
 
@@ -60,15 +44,35 @@ class Acorns(object):
             Path to data location
         outputdir : string, optional
             Alternate output directory. Deflault is datadirectory
-        acorn : int
-            run version of acorns clustering - if this is not None, acorns
-            will create a new acorn for different input parameters
-        description : bool, optional
-            whether or not a description of each parameter is included in the
-            configuration file
         verbose : bool, optional
             verbose output to terminal
         """
+        from .setup import Setup
+
+        self = Acorns()
+
+        clusterobj=Setup()
+        acornsdir = clusterobj.create_directory_structure(filename, datadirectory, outputdir=outputdir, verbose=verbose)
+        datatype = clusterobj.determine_input(filename)
+        self.config = clusterobj.create_config_file(filename, datadirectory, outputdir=acornsdir, datatype=datatype, verbose=verbose)
+
+        return self
+        
+    def initialize(self):
+        from .setup import Setup
+        
+        setup = Setup()
+        self.cluster_config = setup.import_from_config(self.config)
+        data=self.cluster_config.initialize_data()
+
+        print(data)
+        #print(self.cluster_config.cluster_method)
+
+        return self
+        
+        sys.exit()
+
+
         from .io import create_directory_structure
         from .io import generate_config_file
         from .verbose_output import print_to_terminal
