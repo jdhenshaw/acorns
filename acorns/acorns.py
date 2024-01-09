@@ -1146,7 +1146,7 @@ def bud_check(self, data, cluster, linked_clusters):
                 check2 = [False]
 
             # If both of these conditions are false - merge the cluster and bud.
-            if not np.any([check1, check2]):
+            if not np.any(np.concatenate([check1, check2])):
                 self.clusters.pop(linked_bud.cluster_idx)
                 update_cluster_array(self, linked_bud, -1)
                 merge_into_cluster(self, data, cluster, linked_bud)
